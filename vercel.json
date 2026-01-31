@@ -1,8 +1,0 @@
-{
-    "functions": {
-      "app/routes/**/*.{ts,tsx}": {
-        "runtime": "nodejs20.x"
-      }
-    }
-  }
-  
