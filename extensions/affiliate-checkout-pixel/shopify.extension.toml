@@ -1,0 +1,16 @@
+name = "affiliate-checkout-pixel"
+type = "web_pixel_extension"
+uid = "c6c798f7-797e-213d-11d7-ce41a6bd9549e1024e71"
+
+runtime_context = "strict"
+
+[settings]
+type = "object"
+
+[settings.fields.accountID]
+name = "Account ID"
+description = "Account ID"
+type = "single_line_text_field"
+validations =  [
+  { name = "min", value = "1" }
+]

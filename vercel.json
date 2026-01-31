@@ -1,0 +1,11 @@
+{
+    "functions": {
+      "app/routes/**/*.ts": {
+        "runtime": "nodejs18.x"
+      },
+      "app/routes/**/*.tsx": {
+        "runtime": "nodejs18.x"
+      }
+    }
+  }
+  
