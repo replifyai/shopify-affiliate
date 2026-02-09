@@ -5,13 +5,36 @@ declare global {
   var prismaGlobal: PrismaClient;
 }
 
+const defaultDatabaseUrl =
+  process.env.NODE_ENV === "production"
+    ? "postgresql://postgres:postgres@localhost:5432/postgres?schema=public"
+    : "postgresql://postgres:postgres@localhost:5432/postgres?schema=public";
+
+const databaseUrl = process.env.DATABASE_URL || defaultDatabaseUrl;
+
+if (!process.env.DATABASE_URL) {
+  console.warn(
+    "DATABASE_URL is not set. Falling back to local PostgreSQL at localhost:5432.",
+  );
+}
+
+function createPrismaClient() {
+  return new PrismaClient({
+    datasources: {
+      db: {
+        url: databaseUrl,
+      },
+    },
+  });
+}
+
 if (process.env.NODE_ENV !== "production") {
   if (!global.prismaGlobal) {
-    global.prismaGlobal = new PrismaClient();
+    global.prismaGlobal = createPrismaClient();
   }
 }
 
-const prisma = global.prismaGlobal ?? new PrismaClient();
+const prisma = global.prismaGlobal ?? createPrismaClient();
 
 async function ensureSessionTableExists() {
   try {
@@ -22,7 +45,7 @@ async function ensureSessionTableExists() {
         "state" TEXT NOT NULL,
         "isOnline" BOOLEAN NOT NULL DEFAULT false,
         "scope" TEXT,
-        "expires" DATETIME,
+        "expires" TIMESTAMP(3),
         "accessToken" TEXT NOT NULL,
         "userId" BIGINT,
         "firstName" TEXT,
@@ -33,7 +56,7 @@ async function ensureSessionTableExists() {
         "collaborator" BOOLEAN DEFAULT false,
         "emailVerified" BOOLEAN DEFAULT false,
         "refreshToken" TEXT,
-        "refreshTokenExpires" DATETIME
+        "refreshTokenExpires" TIMESTAMP(3)
       )
     `);
   } catch (error) {

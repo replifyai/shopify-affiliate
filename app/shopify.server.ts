@@ -4,9 +4,9 @@ import {
   AppDistribution,
   shopifyApp,
 } from "@shopify/shopify-app-react-router/server";
-import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
-import prisma from "./db.server";
+import prisma, { dbReady } from "./db.server";
 import { ensureWebPixelConnected } from "./pixels.server";
+import { ReadyPrismaSessionStorage } from "./session-storage.server";
 import { syncSessionToBackend } from "./token-sync.server";
 
 const REQUIRED_SCOPES = [
@@ -35,7 +35,7 @@ const shopify = shopifyApp({
   scopes: appScopes,
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
-  sessionStorage: new PrismaSessionStorage(prisma),
+  sessionStorage: new ReadyPrismaSessionStorage(dbReady, prisma),
   distribution: AppDistribution.AppStore,
   future: {
     expiringOfflineAccessTokens: true,
