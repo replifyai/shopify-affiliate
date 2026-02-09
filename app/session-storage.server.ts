@@ -2,36 +2,55 @@ import type { Session } from "@shopify/shopify-api";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import type { PrismaClient } from "@prisma/client";
 
-export class ReadyPrismaSessionStorage extends PrismaSessionStorage<PrismaClient> {
+export class ReadyPrismaSessionStorage {
+  private storagePromise: Promise<PrismaSessionStorage<PrismaClient>> | null =
+    null;
+
   constructor(
     private readonly bootstrapReady: Promise<void>,
-    prisma: PrismaClient,
-  ) {
-    super(prisma);
+    private readonly prisma: PrismaClient,
+  ) {}
+
+  private async getStorage() {
+    if (!this.storagePromise) {
+      this.storagePromise = (async () => {
+        await this.bootstrapReady;
+        return new PrismaSessionStorage(this.prisma, {
+          connectionRetries: 10,
+          connectionRetryIntervalMs: 1000,
+        });
+      })();
+    }
+
+    return this.storagePromise;
   }
 
   async storeSession(session: Session): Promise<boolean> {
-    await this.bootstrapReady;
-    return super.storeSession(session);
+    return (await this.getStorage()).storeSession(session);
   }
 
   async loadSession(id: string): Promise<Session | undefined> {
-    await this.bootstrapReady;
-    return super.loadSession(id);
+    return (await this.getStorage()).loadSession(id);
   }
 
   async deleteSession(id: string): Promise<boolean> {
-    await this.bootstrapReady;
-    return super.deleteSession(id);
+    return (await this.getStorage()).deleteSession(id);
   }
 
   async deleteSessions(ids: string[]): Promise<boolean> {
-    await this.bootstrapReady;
-    return super.deleteSessions(ids);
+    return (await this.getStorage()).deleteSessions(ids);
   }
 
   async findSessionsByShop(shop: string): Promise<Session[]> {
-    await this.bootstrapReady;
-    return super.findSessionsByShop(shop);
+    return (await this.getStorage()).findSessionsByShop(shop);
+  }
+
+  async isReady(): Promise<boolean> {
+    try {
+      return (await this.getStorage()).isReady();
+    } catch (error) {
+      console.error("Session storage bootstrap failed:", error);
+      return false;
+    }
   }
 }
