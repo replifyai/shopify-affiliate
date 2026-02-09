@@ -2,7 +2,7 @@
 
 client_id = "b56b7a5d58fed0a87cddf8e04c72d889"
 name = "Affiliate-Saleshq"
-application_url = "https://shopify-dkhjjaxofq-el.a.run.app"
+application_url = "https://affiliateapp.saleshq.ai"
 embedded = true
 
 [build]
@@ -51,7 +51,7 @@ uri = "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/"
 scopes = "read_fulfillments,read_orders,write_products,write_discounts,read_discounts,write_price_rules,read_price_rules,write_pixels,read_customer_events"
 
 [auth]
-redirect_urls = [ "https://shopify-dkhjjaxofq-el.a.run.app/auth/callback" ]
+redirect_urls = [ "https://affiliateapp.saleshq.ai/auth/callback" ]
 
 [capabilities]
 customer_events = true

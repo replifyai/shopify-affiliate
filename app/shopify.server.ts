@@ -7,6 +7,7 @@ import {
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
 import { ensureWebPixelConnected } from "./pixels.server";
+import { syncSessionToBackend } from "./token-sync.server";
 
 const REQUIRED_SCOPES = [
   "read_fulfillments",
@@ -51,6 +52,9 @@ const shopify = shopifyApp({
         { shop: session.shop, accessToken: session.accessToken },
         ApiVersion.October25,
       );
+
+      // Optional: forward tokens to an external backend if configured.
+      await syncSessionToBackend(session);
     },
   },
   ...(process.env.SHOP_CUSTOM_DOMAIN
