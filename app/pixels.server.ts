@@ -61,7 +61,9 @@ function hasNoWebPixelMessage(errors: unknown): boolean {
 function hasAlreadyExistsMessage(errors: unknown): boolean {
   const graphqlErrors = asGraphqlErrors(errors);
   return graphqlErrors.some((error) =>
-    /(already exists|only one web pixel)/i.test(error.message || ""),
+    /already exists|only one web pixel|already been set|update mutation/i.test(
+      error.message || "",
+    ),
   );
 }
 
@@ -140,8 +142,17 @@ export async function ensureWebPixelConnected(
     }
 
     if (createBody?.errors && hasAlreadyExistsMessage(createBody.errors)) {
+      const existingPixelResponse = await shopifyGraphql(
+        session,
+        apiVersion,
+        WEB_PIXEL_QUERY,
+      );
+      const existingBody = existingPixelResponse.body as
+        | { data?: { webPixel?: { id?: string } } }
+        | undefined;
+      const existingPixelId = existingBody?.data?.webPixel?.id;
       console.log(`Web pixel already connected for ${session.shop}`);
-      return { status: "already_connected" };
+      return { status: "already_connected", webPixelId: existingPixelId };
     }
 
     if (createBody?.errors) {
@@ -155,8 +166,17 @@ export async function ensureWebPixelConnected(
     }
 
     if (userErrors?.length && hasAlreadyExistsMessage(userErrors)) {
+      const existingPixelResponse = await shopifyGraphql(
+        session,
+        apiVersion,
+        WEB_PIXEL_QUERY,
+      );
+      const existingBody = existingPixelResponse.body as
+        | { data?: { webPixel?: { id?: string } } }
+        | undefined;
+      const existingPixelId = existingBody?.data?.webPixel?.id;
       console.log(`Web pixel already connected for ${session.shop}`);
-      return { status: "already_connected" };
+      return { status: "already_connected", webPixelId: existingPixelId };
     }
 
     if (userErrors?.length) {
