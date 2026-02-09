@@ -5,6 +5,7 @@
     console.log("✅ Affiliate app embed loaded");
   
     const COOKIE_NAME = "__hqref";
+    const SMCHANNEL_COOKIE = "__hqsmchannel";
     const COOKIE_DAYS = 1;
     const REF_PARAM = "ref";
   
@@ -43,14 +44,21 @@
     const affiliateName = params.get("rfname");
     const discountPercent = params.get("dispc");
     const discountCode = params.get("discount");
+    const smChannelFromParam = params.get("smchannel");
 
     /* ==============================
-       2️⃣ Set ref cookie (first-touch)
+       2️⃣ Set cookies (first-touch)
     ============================== */
     const existingCookie = getCookie(COOKIE_NAME);
     if (affiliateIdFromParam && !existingCookie) {
       setCookie(COOKIE_NAME, affiliateIdFromParam, COOKIE_DAYS);
       console.log("✅ Ref cookie set:", affiliateIdFromParam);
+    }
+
+    const existingSmChannelCookie = getCookie(SMCHANNEL_COOKIE);
+    if (smChannelFromParam && !existingSmChannelCookie) {
+      setCookie(SMCHANNEL_COOKIE, smChannelFromParam, COOKIE_DAYS);
+      console.log("✅ SM Channel cookie set:", smChannelFromParam);
     }
 
     /* ==============================
@@ -59,19 +67,23 @@
     ============================== */
     // Get affiliate ID from URL param first, fallback to cookie
     const affiliateId = affiliateIdFromParam || getCookie(COOKIE_NAME);
+    // Get SM channel from URL param first, fallback to cookie
+    const smChannel = smChannelFromParam || getCookie(SMCHANNEL_COOKIE);
     
     persistAffiliateToCart({
       affiliateId,
       affiliateName,
       discountCode,
-      discountPercent
+      discountPercent,
+      smChannel
     });
 
     function persistAffiliateToCart({
       affiliateId,
       affiliateName,
       discountCode,
-      discountPercent
+      discountPercent,
+      smChannel
     }) {
       // Persist if we have affiliate ID (from URL or cookie) OR discount code
       if (!affiliateId && !discountCode) return;
@@ -95,6 +107,7 @@
                 affiliate_name: affiliateName || "",
                 affiliate_discount_code: discountCode || "",
                 affiliate_discount_percent: discountPercent || "",
+                affiliate_sm_channel: smChannel || "",
                 affiliate_source: "affiliate_link",
                 affiliate_ts: Date.now().toString()
               }
@@ -459,6 +472,7 @@
 (function affiliateReturnVisitorReminder() {
   const SESSION_KEY = "__hq_affiliate_return_shown";
   const REF_COOKIE = "__hqref";
+  const SMCHANNEL_COOKIE = "__hqsmchannel";
 
   if (location.pathname.includes("/checkout")) return;
 
@@ -472,6 +486,7 @@
   }
 
   const affiliateIdFromCookie = getCookieValue(REF_COOKIE);
+  const smChannelFromCookie = getCookieValue(SMCHANNEL_COOKIE);
   if (!affiliateIdFromCookie) return;
 
   // Ensure cart attributes are set for return visitors
@@ -493,6 +508,7 @@
             attributes: {
               shop_ref: affiliateIdFromCookie,
               affiliate_id: affiliateIdFromCookie,
+              affiliate_sm_channel: smChannelFromCookie || "",
               affiliate_source: "return_visitor",
               affiliate_ts: Date.now().toString()
             }

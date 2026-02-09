@@ -6,18 +6,52 @@ import {
 } from "@shopify/shopify-app-react-router/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
+import { ensureWebPixelConnected } from "./pixels.server";
+
+const REQUIRED_SCOPES = [
+  "read_fulfillments",
+  "read_orders",
+  "write_products",
+  "write_discounts",
+  "read_discounts",
+  "write_price_rules",
+  "read_price_rules",
+  "write_pixels",
+  "read_customer_events",
+];
+
+const envScopes = (process.env.SCOPES || "")
+  .split(",")
+  .map((scope) => scope.trim())
+  .filter(Boolean);
+
+const appScopes = Array.from(new Set([...envScopes, ...REQUIRED_SCOPES]));
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
   apiVersion: ApiVersion.October25,
-  scopes: process.env.SCOPES?.split(","),
+  scopes: appScopes,
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
   future: {
     expiringOfflineAccessTokens: true,
+  },
+  hooks: {
+    afterAuth: async ({ session }) => {
+      if (!session.accessToken) {
+        console.error(`Missing access token for ${session.shop} during afterAuth`);
+        return;
+      }
+
+      // Webhooks stay config-based; only ensure the app pixel is connected.
+      await ensureWebPixelConnected(
+        { shop: session.shop, accessToken: session.accessToken },
+        ApiVersion.October25,
+      );
+    },
   },
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }

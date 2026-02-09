@@ -1,12 +1,35 @@
-import type { WebPixelExtensionPoint } from "@shopify/web-pixels-extension";
+import { register } from "@shopify/web-pixels-extension";
 
 const ENDPOINT =
   "https://asia-south1-touch-17fa9.cloudfunctions.net/pixelWebhook";
 
-const webPixel: WebPixelExtensionPoint = ({ analytics }) => {
-  analytics.subscribe("checkout_completed", async (event) => {
+type CheckoutCompletedEvent = {
+  data?: {
+    checkout?: {
+      order?: {
+        id?: string | null;
+        name?: string | null;
+        order_number?: number | null;
+        customer?: { id?: string | null } | null;
+      } | null;
+      email?: string | null;
+      currencyCode?: string | null;
+      totalPrice?: { amount?: string | number | null } | null;
+    } | null;
+  };
+  context?: {
+    window?: { location?: { hostname?: string } };
+    document?: { location?: { hostname?: string } };
+  };
+};
+
+register(({ analytics, init }) => {
+  const defaultShopDomain = init?.data?.shop?.myshopifyDomain || null;
+
+  analytics.subscribe("checkout_completed", async (event: unknown) => {
     try {
-      const checkout = event.data?.checkout;
+      const checkoutEvent = event as CheckoutCompletedEvent;
+      const checkout = checkoutEvent.data?.checkout;
       const order = checkout?.order;
 
       const payload = {
@@ -14,7 +37,10 @@ const webPixel: WebPixelExtensionPoint = ({ analytics }) => {
         timestamp: new Date().toISOString(),
 
         shop:
-          event.context?.document?.location?.hostname || null,
+          defaultShopDomain ||
+          checkoutEvent.context?.window?.location?.hostname ||
+          checkoutEvent.context?.document?.location?.hostname ||
+          null,
 
         order_id: order?.id || null,
         order_name: order?.name || null,
@@ -27,22 +53,17 @@ const webPixel: WebPixelExtensionPoint = ({ analytics }) => {
         total: checkout?.totalPrice?.amount || null,
 
         customer_id: order?.customer?.id || null,
-
-        // Raw event for debugging / future use
-        data: event
+        event_id: (checkoutEvent as { id?: string })?.id || null,
       };
 
       await fetch(ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-        keepalive: true
       });
     } catch (err) {
       // Never break checkout
       console.error("Affiliate web pixel error", err);
     }
   });
-};
-
-export default webPixel;
+});

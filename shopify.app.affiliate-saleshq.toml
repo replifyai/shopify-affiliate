@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "66dfda448380dd1a52e37fa5166d8067"
-name = "SalesHq-App"
+client_id = "b56b7a5d58fed0a87cddf8e04c72d889"
+name = "Affiliate-Saleshq"
 application_url = "https://shopify-dkhjjaxofq-el.a.run.app"
 embedded = true
 
@@ -10,31 +10,41 @@ automatically_update_urls_on_dev = true
 
 [webhooks]
 api_version = "2026-04"
-
-  [[webhooks.subscriptions]]
+[[webhooks.subscriptions]]
   topics = [ "app/uninstalled" ]
   uri = "/webhooks/app/uninstalled"
+
+[[webhooks.subscriptions]]
+topics = [ "app/scopes_update" ]
+uri = "/webhooks/app/scopes_update"
 
 [[webhooks.subscriptions]]
 topics = [ "orders/create" ]
 uri = "https://asia-south1-touch-17fa9.cloudfunctions.net/shopifyOrderCreated"
 
 [[webhooks.subscriptions]]
+topics = [ "orders/paid" ]
+uri = "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/"
+
+[[webhooks.subscriptions]]
 topics = [ "orders/updated" ]
-uri = "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app"
+uri = "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/"
 
 [[webhooks.subscriptions]]
 topics = [ "orders/cancelled" ]
-uri = "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app"
+uri = "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/"
 
 [[webhooks.subscriptions]]
 topics = [ "refunds/create" ]
-uri = "https://shopifyrefundcreated-dkhjjaxofq-el.a.run.app"
+uri = "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/"
 
+[[webhooks.subscriptions]]
+topics = [ "fulfillments/create" ]
+uri = "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/"
 
-  [[webhooks.subscriptions]]
-  topics = [ "app/scopes_update" ]
-  uri = "/webhooks/app/scopes_update"
+[[webhooks.subscriptions]]
+topics = [ "fulfillments/update" ]
+uri = "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
