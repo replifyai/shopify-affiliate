@@ -7,34 +7,13 @@ import { ensureWebPixelConnected } from "../pixels.server";
 const CONFIG_BASED_WEBHOOKS = [
   { topic: "app/uninstalled", uri: "/webhooks/app/uninstalled" },
   { topic: "app/scopes_update", uri: "/webhooks/app/scopes_update" },
-  {
-    topic: "orders/create",
-    uri: "https://asia-south1-touch-17fa9.cloudfunctions.net/shopifyOrderCreated",
-  },
-  {
-    topic: "orders/paid",
-    uri: "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/",
-  },
-  {
-    topic: "orders/updated",
-    uri: "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/",
-  },
-  {
-    topic: "orders/cancelled",
-    uri: "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/",
-  },
-  {
-    topic: "refunds/create",
-    uri: "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/",
-  },
-  {
-    topic: "fulfillments/create",
-    uri: "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/",
-  },
-  {
-    topic: "fulfillments/update",
-    uri: "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/",
-  },
+  { topic: "orders/create", uri: "/webhooks/orders/create" },
+  { topic: "orders/paid", uri: "/webhooks/orders/paid" },
+  { topic: "orders/updated", uri: "/webhooks/orders/updated" },
+  { topic: "orders/cancelled", uri: "/webhooks/orders/cancelled" },
+  { topic: "refunds/create", uri: "/webhooks/refunds/create" },
+  { topic: "fulfillments/create", uri: "/webhooks/fulfillments/create" },
+  { topic: "fulfillments/update", uri: "/webhooks/fulfillments/update" },
 ];
 
 const INTEGRATION_STATUS_QUERY = `#graphql

@@ -17,19 +17,19 @@ api_version = "2026-04"
 
 [[webhooks.subscriptions]]
 topics = [ "orders/create" ]
-uri = "https://asia-south1-touch-17fa9.cloudfunctions.net/shopifyOrderCreated"
+uri = "/webhooks/orders/create"
 
 [[webhooks.subscriptions]]
 topics = [ "orders/updated" ]
-uri = "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app"
+uri = "/webhooks/orders/updated"
 
 [[webhooks.subscriptions]]
 topics = [ "orders/cancelled" ]
-uri = "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app"
+uri = "/webhooks/orders/cancelled"
 
 [[webhooks.subscriptions]]
 topics = [ "refunds/create" ]
-uri = "https://shopifyrefundcreated-dkhjjaxofq-el.a.run.app"
+uri = "/webhooks/refunds/create"
 
 
   [[webhooks.subscriptions]]
