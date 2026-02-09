@@ -1,4 +1,5 @@
 import type { LoaderFunctionArgs } from "react-router";
+import { useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 import { apiVersion } from "../shopify.server";
 import { ensureWebPixelConnected } from "../pixels.server";
@@ -59,7 +60,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     errors?: unknown;
   };
 
-  return Response.json({
+  return {
     shop: session.shop,
     scope: session.scope,
     requestedScopes:
@@ -70,5 +71,52 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     webPixel: payload?.data?.webPixel || null,
     webhookSubscriptions: payload?.data?.webhookSubscriptions?.edges || [],
     errors: payload?.errors || null,
-  });
+  };
 };
+
+export default function IntegrationStatus() {
+  const data = useLoaderData<typeof loader>();
+
+  return (
+    <s-page heading="Integration Status">
+      <s-section heading="Shop">
+        <s-paragraph>{data.shop}</s-paragraph>
+      </s-section>
+
+      <s-section heading="Scopes">
+        <s-paragraph>
+          Requested: {data.requestedScopes.join(", ") || "(none)"}
+        </s-paragraph>
+        <s-paragraph>
+          Installed: {data.installedScopes.join(", ") || "(none)"}
+        </s-paragraph>
+      </s-section>
+
+      <s-section heading="Pixel">
+        <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
+          <pre style={{ margin: 0 }}>
+            <code>{JSON.stringify({ repair: data.pixelRepair, webPixel: data.webPixel }, null, 2)}</code>
+          </pre>
+        </s-box>
+      </s-section>
+
+      <s-section heading="Webhook Subscriptions">
+        <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
+          <pre style={{ margin: 0 }}>
+            <code>{JSON.stringify(data.webhookSubscriptions, null, 2)}</code>
+          </pre>
+        </s-box>
+      </s-section>
+
+      {data.errors ? (
+        <s-section heading="GraphQL Errors">
+          <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
+            <pre style={{ margin: 0 }}>
+              <code>{JSON.stringify(data.errors, null, 2)}</code>
+            </pre>
+          </s-box>
+        </s-section>
+      ) : null}
+    </s-page>
+  );
+}

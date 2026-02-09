@@ -17,10 +17,7 @@ type CheckoutCompletedEvent = {
       totalPrice?: { amount?: string | number | null } | null;
     } | null;
   };
-  context?: {
-    window?: { location?: { hostname?: string } };
-    document?: { location?: { hostname?: string } };
-  };
+  id?: string;
 };
 
 register(({ analytics, init }) => {
@@ -35,12 +32,7 @@ register(({ analytics, init }) => {
       const payload = {
         event: "checkout_completed",
         timestamp: new Date().toISOString(),
-
-        shop:
-          defaultShopDomain ||
-          checkoutEvent.context?.window?.location?.hostname ||
-          checkoutEvent.context?.document?.location?.hostname ||
-          null,
+        shop: defaultShopDomain,
 
         order_id: order?.id || null,
         order_name: order?.name || null,
@@ -53,13 +45,14 @@ register(({ analytics, init }) => {
         total: checkout?.totalPrice?.amount || null,
 
         customer_id: order?.customer?.id || null,
-        event_id: (checkoutEvent as { id?: string })?.id || null,
+        event_id: checkoutEvent.id || null,
       };
 
       await fetch(ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
+        keepalive: true,
       });
     } catch (err) {
       // Never break checkout

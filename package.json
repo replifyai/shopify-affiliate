@@ -2,7 +2,7 @@
   "name": "saleshq-affiliate",
   "private": true,
   "scripts": {
-    "build": "react-router build",
+    "build": "prisma generate && (if [ -n \"$DATABASE_URL\" ]; then prisma migrate deploy; else echo \"Skipping prisma migrate deploy because DATABASE_URL is not set\"; fi) && react-router build",
     "dev": "shopify app dev -c shopify.app.affiliate-saleshq.toml",
     "config:link": "shopify app config link -c shopify.app.affiliate-saleshq.toml",
     "generate": "shopify app generate",
