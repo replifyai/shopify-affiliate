@@ -4,6 +4,39 @@ import { authenticate } from "../shopify.server";
 import { apiVersion } from "../shopify.server";
 import { ensureWebPixelConnected } from "../pixels.server";
 
+const CONFIG_BASED_WEBHOOKS = [
+  { topic: "app/uninstalled", uri: "/webhooks/app/uninstalled" },
+  { topic: "app/scopes_update", uri: "/webhooks/app/scopes_update" },
+  {
+    topic: "orders/create",
+    uri: "https://asia-south1-touch-17fa9.cloudfunctions.net/shopifyOrderCreated",
+  },
+  {
+    topic: "orders/paid",
+    uri: "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/",
+  },
+  {
+    topic: "orders/updated",
+    uri: "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/",
+  },
+  {
+    topic: "orders/cancelled",
+    uri: "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/",
+  },
+  {
+    topic: "refunds/create",
+    uri: "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/",
+  },
+  {
+    topic: "fulfillments/create",
+    uri: "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/",
+  },
+  {
+    topic: "fulfillments/update",
+    uri: "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/",
+  },
+];
+
 const INTEGRATION_STATUS_QUERY = `#graphql
   query IntegrationStatus {
     app {
@@ -69,6 +102,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       payload?.data?.app?.installation?.accessScopes?.map((s) => s.handle) || [],
     pixelRepair,
     webPixel: payload?.data?.webPixel || null,
+    configuredWebhooks: CONFIG_BASED_WEBHOOKS,
     webhookSubscriptions: payload?.data?.webhookSubscriptions?.edges || [],
     errors: payload?.errors || null,
   };
@@ -101,6 +135,19 @@ export default function IntegrationStatus() {
       </s-section>
 
       <s-section heading="Webhook Subscriptions">
+        <s-paragraph>
+          App-specific webhooks from <code>shopify.app.affiliate-saleshq.toml</code>{" "}
+          are managed by Shopify and may not appear in the Admin API
+          <code> webhookSubscriptions</code> list.
+        </s-paragraph>
+        <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
+          <pre style={{ margin: 0 }}>
+            <code>{JSON.stringify(data.configuredWebhooks, null, 2)}</code>
+          </pre>
+        </s-box>
+      </s-section>
+
+      <s-section heading="Admin API Webhook Subscriptions (Optional)">
         <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
           <pre style={{ margin: 0 }}>
             <code>{JSON.stringify(data.webhookSubscriptions, null, 2)}</code>
