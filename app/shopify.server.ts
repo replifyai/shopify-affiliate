@@ -4,9 +4,10 @@ import {
   AppDistribution,
   shopifyApp,
 } from "@shopify/shopify-app-react-router/server";
-import prisma, { dbReady } from "./db.server";
+import { dbReady } from "./db.server";
 import { ensureWebPixelConnected } from "./pixels.server";
-import { ReadyPrismaSessionStorage } from "./session-storage.server";
+import { PostgresSessionStorage } from "./session-storage.server";
+import { upsertShopToken } from "./shopify-shop.server";
 import { syncSessionToBackend } from "./token-sync.server";
 
 const REQUIRED_SCOPES = [
@@ -35,7 +36,7 @@ const shopify = shopifyApp({
   scopes: appScopes,
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
-  sessionStorage: new ReadyPrismaSessionStorage(dbReady, prisma),
+  sessionStorage: new PostgresSessionStorage(dbReady),
   distribution: AppDistribution.AppStore,
   future: {
     expiringOfflineAccessTokens: true,
@@ -45,6 +46,22 @@ const shopify = shopifyApp({
       if (!session.accessToken) {
         console.error(`Missing access token for ${session.shop} during afterAuth`);
         return;
+      }
+
+      try {
+        await upsertShopToken({
+          shopDomain: session.shop,
+          accessToken: session.accessToken,
+          scopes: session.scope || null,
+          locale: session.onlineAccessInfo?.associated_user?.locale || null,
+          associatedUserScope:
+            session.onlineAccessInfo?.associated_user_scope || null,
+        });
+      } catch (error) {
+        console.error(
+          `Failed to upsert shop token in shopity_shop for ${session.shop}:`,
+          error,
+        );
       }
 
       // Webhooks stay config-based; only ensure the app pixel is connected.
