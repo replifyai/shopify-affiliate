@@ -59,7 +59,7 @@ const shopify = shopifyApp({
         });
       } catch (error) {
         console.error(
-          `Failed to upsert shop token in shopity_shop for ${session.shop}:`,
+          `Failed to upsert shop token for ${session.shop}:`,
           error,
         );
       }

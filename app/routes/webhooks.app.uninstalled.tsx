@@ -10,7 +10,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   try {
     await markShopUninstalled(shop);
   } catch (error) {
-    console.error(`Failed to mark ${shop} as uninstalled in shopity_shop:`, error);
+    console.error(`Failed to mark ${shop} as uninstalled in shop token table:`, error);
   }
 
   try {

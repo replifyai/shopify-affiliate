@@ -12,7 +12,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   try {
     await updateShopScopes(shop, scopeCsv);
   } catch (error) {
-    console.error(`Failed to update scopes in shopity_shop for ${shop}:`, error);
+    console.error(`Failed to update scopes for ${shop} in shop token table:`, error);
   }
 
   try {

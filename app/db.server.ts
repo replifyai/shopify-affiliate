@@ -41,11 +41,75 @@ const pool =
     ? createPool()
     : (global.pgPoolGlobal ??= createPool());
 
+const DEFAULT_SHOP_TOKEN_TABLES = [
+  "public.shopify_shop",
+  "public.shopity_shop",
+] as const;
+
+let resolvedShopTokenTable: string | null | undefined;
+
 export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
   params: unknown[] = [],
 ): Promise<QueryResult<T>> {
   return pool.query<T>(text, params);
+}
+
+function normalizeQualifiedTableName(value: string | undefined | null) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const qualified = trimmed.includes(".") ? trimmed : `public.${trimmed}`;
+  if (!/^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/.test(qualified)) {
+    return null;
+  }
+
+  return qualified;
+}
+
+async function tableExists(tableName: string) {
+  const result = await query<{ regclass: string | null }>(
+    "SELECT to_regclass($1) AS regclass",
+    [tableName],
+  );
+  return Boolean(result.rows[0]?.regclass);
+}
+
+export async function resolveShopTokenTable(options?: { forceRefresh?: boolean }) {
+  const forceRefresh = options?.forceRefresh === true;
+  if (!forceRefresh && resolvedShopTokenTable !== undefined) {
+    return resolvedShopTokenTable;
+  }
+
+  const configuredTable = normalizeQualifiedTableName(
+    process.env.SHOP_TOKEN_TABLE || process.env.SHOP_TABLE,
+  );
+
+  if (configuredTable) {
+    if (await tableExists(configuredTable)) {
+      resolvedShopTokenTable = configuredTable;
+      return configuredTable;
+    }
+    console.warn(
+      `Configured shop token table ${configuredTable} not found in DATABASE_URL.`,
+    );
+  }
+
+  for (const candidate of DEFAULT_SHOP_TOKEN_TABLES) {
+    if (await tableExists(candidate)) {
+      resolvedShopTokenTable = candidate;
+      if (candidate !== DEFAULT_SHOP_TOKEN_TABLES[0]) {
+        console.warn(
+          `Using fallback shop token table ${candidate}. Set SHOP_TOKEN_TABLE to pin this explicitly.`,
+        );
+      }
+      return candidate;
+    }
+  }
+
+  resolvedShopTokenTable = null;
+  return null;
 }
 
 async function ensureRuntimeTables() {
@@ -66,12 +130,10 @@ async function ensureRuntimeTables() {
     ON public.shopify_app_session (shop)
   `);
 
-  const tableCheck = await query<{ regclass: string | null }>(
-    "SELECT to_regclass('public.shopity_shop') AS regclass",
-  );
-  if (!tableCheck.rows[0]?.regclass) {
+  const resolvedTable = await resolveShopTokenTable({ forceRefresh: true });
+  if (!resolvedTable) {
     console.warn(
-      "Table public.shopity_shop not found. Token upsert will fail until this table exists.",
+      "No shop token table found. Create public.shopity_shop or public.shopify_shop, or set SHOP_TOKEN_TABLE.",
     );
   }
 }

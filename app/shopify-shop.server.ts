@@ -1,6 +1,4 @@
-import { query } from "./db.server";
-
-const SHOP_TABLE = "public.shopity_shop";
+import { query, resolveShopTokenTable } from "./db.server";
 
 type UpsertShopTokenInput = {
   shopDomain: string;
@@ -17,14 +15,25 @@ function nowMs() {
   return Date.now();
 }
 
+async function requireShopTable() {
+  const table = await resolveShopTokenTable();
+  if (!table) {
+    throw new Error(
+      "No shop token table found. Create public.shopity_shop or public.shopify_shop, or set SHOP_TOKEN_TABLE.",
+    );
+  }
+  return table;
+}
+
 export async function upsertShopToken(input: UpsertShopTokenInput) {
+  const shopTable = await requireShopTable();
   const timestampMs = nowMs();
   const callbackTimestamp =
     input.callbackTimestamp || new Date(timestampMs).toISOString();
 
   await query(
     `
-      INSERT INTO ${SHOP_TABLE} (
+      INSERT INTO ${shopTable} (
         shop_domain,
         access_token,
         scopes,
@@ -51,11 +60,11 @@ export async function upsertShopToken(input: UpsertShopTokenInput) {
         updated_at = EXCLUDED.updated_at,
         last_auth_at = EXCLUDED.last_auth_at,
         last_callback_timestamp = EXCLUDED.last_callback_timestamp,
-        host = COALESCE(EXCLUDED.host, ${SHOP_TABLE}.host),
-        embedded = COALESCE(EXCLUDED.embedded, ${SHOP_TABLE}.embedded),
-        locale = COALESCE(EXCLUDED.locale, ${SHOP_TABLE}.locale),
-        associated_user_scope = COALESCE(EXCLUDED.associated_user_scope, ${SHOP_TABLE}.associated_user_scope),
-        first_installed_at = COALESCE(${SHOP_TABLE}.first_installed_at, EXCLUDED.first_installed_at)
+        host = COALESCE(EXCLUDED.host, ${shopTable}.host),
+        embedded = COALESCE(EXCLUDED.embedded, ${shopTable}.embedded),
+        locale = COALESCE(EXCLUDED.locale, ${shopTable}.locale),
+        associated_user_scope = COALESCE(EXCLUDED.associated_user_scope, ${shopTable}.associated_user_scope),
+        first_installed_at = COALESCE(${shopTable}.first_installed_at, EXCLUDED.first_installed_at)
     `,
     [
       input.shopDomain,
@@ -76,10 +85,11 @@ export async function upsertShopToken(input: UpsertShopTokenInput) {
 }
 
 export async function updateShopScopes(shopDomain: string, scopes: string | null) {
+  const shopTable = await requireShopTable();
   const timestampMs = nowMs();
   await query(
     `
-      UPDATE ${SHOP_TABLE}
+      UPDATE ${shopTable}
       SET
         scopes = $2,
         updated_at = $3
@@ -90,10 +100,11 @@ export async function updateShopScopes(shopDomain: string, scopes: string | null
 }
 
 export async function markShopUninstalled(shopDomain: string) {
+  const shopTable = await requireShopTable();
   const timestampMs = nowMs();
   await query(
     `
-      UPDATE ${SHOP_TABLE}
+      UPDATE ${shopTable}
       SET
         uninstalled_at = $2,
         updated_at = $3
@@ -104,10 +115,11 @@ export async function markShopUninstalled(shopDomain: string) {
 }
 
 export async function getShopAccessToken(shopDomain: string) {
+  const shopTable = await requireShopTable();
   const result = await query<{ access_token: string | null }>(
     `
       SELECT access_token
-      FROM ${SHOP_TABLE}
+      FROM ${shopTable}
       WHERE shop_domain = $1
         AND (uninstalled_at IS NULL OR uninstalled_at = 0)
       LIMIT 1
