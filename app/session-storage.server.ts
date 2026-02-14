@@ -1,6 +1,8 @@
 import { Session } from "@shopify/shopify-api";
 import type { SessionStorage } from "@shopify/shopify-app-session-storage";
 import { query } from "./db.server";
+import { upsertShopToken } from "./shopify-shop.server";
+import { syncSessionToBackend } from "./token-sync.server";
 
 type StoredSession = {
   [key: string]: unknown;
@@ -35,6 +37,42 @@ export class PostgresSessionStorage implements SessionStorage {
 
   private async ready() {
     await this.bootstrapReady;
+  }
+
+  private async syncOfflineToken(session: Session) {
+    if (session.isOnline || !session.accessToken) return;
+
+    try {
+      await upsertShopToken({
+        shopDomain: session.shop,
+        accessToken: session.accessToken,
+        accessTokenExpiresAtMs: session.expires ? session.expires.getTime() : null,
+        refreshToken: session.refreshToken || null,
+        refreshTokenExpiresAtMs: session.refreshTokenExpires
+          ? session.refreshTokenExpires.getTime()
+          : null,
+        scopes: session.scope || null,
+      });
+    } catch (error) {
+      console.error(`Failed to sync offline token for ${session.shop}:`, error);
+    }
+
+    try {
+      await syncSessionToBackend({
+        shop: session.shop,
+        accessToken: session.accessToken,
+        scope: session.scope || null,
+        isOnline: session.isOnline,
+        expires: session.expires || null,
+        refreshToken: session.refreshToken || null,
+        refreshTokenExpires: session.refreshTokenExpires || null,
+      });
+    } catch (error) {
+      console.error(
+        `Failed to sync refreshed token payload for ${session.shop}:`,
+        error,
+      );
+    }
   }
 
   async storeSession(session: Session): Promise<boolean> {
@@ -73,6 +111,8 @@ export class PostgresSessionStorage implements SessionStorage {
         now,
       ],
     );
+
+    await this.syncOfflineToken(session);
 
     return true;
   }

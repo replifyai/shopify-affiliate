@@ -3,7 +3,7 @@ import { authenticate } from "../shopify.server";
 import { forwardWebhookToBackend } from "../webhook-forward.server";
 
 const DEFAULT_FORWARD_URL =
-  "https://asia-south1-touch-17fa9.cloudfunctions.net/shopifyOrderCreated";
+  "https://shopifyallinone-dkhjjaxofq-el.a.run.app/";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { payload, topic, shop } = await authenticate.webhook(request);

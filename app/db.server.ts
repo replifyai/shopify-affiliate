@@ -47,6 +47,7 @@ const DEFAULT_SHOP_TOKEN_TABLES = [
 ] as const;
 
 let resolvedShopTokenTable: string | null | undefined;
+const tableColumnsCache = new Map<string, Set<string>>();
 
 export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
@@ -68,6 +69,14 @@ function normalizeQualifiedTableName(value: string | undefined | null) {
   return qualified;
 }
 
+function splitQualifiedTableName(tableName: string) {
+  const [schema, table] = tableName.split(".");
+  if (!schema || !table) {
+    throw new Error(`Invalid qualified table name: ${tableName}`);
+  }
+  return { schema, table };
+}
+
 async function tableExists(tableName: string) {
   const result = await query<{ regclass: string | null }>(
     "SELECT to_regclass($1) AS regclass",
@@ -80,6 +89,10 @@ export async function resolveShopTokenTable(options?: { forceRefresh?: boolean }
   const forceRefresh = options?.forceRefresh === true;
   if (!forceRefresh && resolvedShopTokenTable !== undefined) {
     return resolvedShopTokenTable;
+  }
+
+  if (forceRefresh) {
+    resolvedShopTokenTable = undefined;
   }
 
   const configuredTable = normalizeQualifiedTableName(
@@ -112,6 +125,33 @@ export async function resolveShopTokenTable(options?: { forceRefresh?: boolean }
   return null;
 }
 
+export async function getTableColumns(
+  tableName: string,
+  options?: { forceRefresh?: boolean },
+) {
+  const forceRefresh = options?.forceRefresh === true;
+  if (!forceRefresh && tableColumnsCache.has(tableName)) {
+    return tableColumnsCache.get(tableName) as Set<string>;
+  }
+
+  const { schema, table } = splitQualifiedTableName(tableName);
+  const result = await query<{ column_name: string }>(
+    `
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = $1
+        AND table_name = $2
+    `,
+    [schema, table],
+  );
+
+  const columns = new Set(
+    result.rows.map((row) => row.column_name.toLowerCase()),
+  );
+  tableColumnsCache.set(tableName, columns);
+  return columns;
+}
+
 async function ensureRuntimeTables() {
   await query(`
     CREATE TABLE IF NOT EXISTS public.shopify_app_session (
@@ -133,7 +173,7 @@ async function ensureRuntimeTables() {
   const resolvedTable = await resolveShopTokenTable({ forceRefresh: true });
   if (!resolvedTable) {
     console.warn(
-      "No shop token table found. Create public.shopity_shop or public.shopify_shop, or set SHOP_TOKEN_TABLE.",
+      "No shop token table found. Create public.shopify_shop or public.shopity_shop, or set SHOP_TOKEN_TABLE.",
     );
   }
 }

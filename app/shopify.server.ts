@@ -52,6 +52,13 @@ const shopify = shopifyApp({
         await upsertShopToken({
           shopDomain: session.shop,
           accessToken: session.accessToken,
+          accessTokenExpiresAtMs: session.expires
+            ? session.expires.getTime()
+            : null,
+          refreshToken: session.refreshToken || null,
+          refreshTokenExpiresAtMs: session.refreshTokenExpires
+            ? session.refreshTokenExpires.getTime()
+            : null,
           scopes: session.scope || null,
           locale: session.onlineAccessInfo?.associated_user?.locale || null,
           associatedUserScope:

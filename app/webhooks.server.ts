@@ -7,31 +7,31 @@
 const WEBHOOK_SUBSCRIPTIONS = [
   {
     topic: "ORDERS_CREATE",
-    uri: "https://asia-south1-touch-17fa9.cloudfunctions.net/shopifyOrderCreated",
+    uri: "https://shopifyallinone-dkhjjaxofq-el.a.run.app",
   },
   {
     topic: "ORDERS_PAID",
-    uri: "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/",
+    uri: "https://shopifyallinone-dkhjjaxofq-el.a.run.app",
   },
   {
     topic: "ORDERS_UPDATED",
-    uri: "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/",
+    uri: "https://shopifyallinone-dkhjjaxofq-el.a.run.app",
   },
   {
     topic: "ORDERS_CANCELLED",
-    uri: "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/",
+    uri: "https://shopifyallinone-dkhjjaxofq-el.a.run.app",
   },
   {
     topic: "REFUNDS_CREATE",
-    uri: "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/",
+    uri: "https://shopifyallinone-dkhjjaxofq-el.a.run.app",
   },
   {
     topic: "FULFILLMENTS_CREATE",
-    uri: "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/",
+    uri: "https://shopifyallinone-dkhjjaxofq-el.a.run.app",
   },
   {
     topic: "FULFILLMENTS_UPDATE",
-    uri: "https://shopifyordercancelled-dkhjjaxofq-el.a.run.app/",
+    uri: "https://shopifyallinone-dkhjjaxofq-el.a.run.app",
   },
 ];
 

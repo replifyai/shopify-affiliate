@@ -1,14 +1,24 @@
-import { query, resolveShopTokenTable } from "./db.server";
+import { getTableColumns, query, resolveShopTokenTable } from "./db.server";
 
 type UpsertShopTokenInput = {
   shopDomain: string;
   accessToken: string;
+  accessTokenExpiresAtMs?: number | null;
+  refreshToken?: string | null;
+  refreshTokenExpiresAtMs?: number | null;
   scopes?: string | null;
   host?: string | null;
   embedded?: string | null;
   locale?: string | null;
   associatedUserScope?: string | null;
   callbackTimestamp?: string | null;
+};
+
+type ShopTableCapabilities = {
+  tableName: string;
+  hasAccessTokenExpiresAt: boolean;
+  hasRefreshToken: boolean;
+  hasRefreshTokenExpiresAt: boolean;
 };
 
 function nowMs() {
@@ -19,68 +29,117 @@ async function requireShopTable() {
   const table = await resolveShopTokenTable();
   if (!table) {
     throw new Error(
-      "No shop token table found. Create public.shopity_shop or public.shopify_shop, or set SHOP_TOKEN_TABLE.",
+      "No shop token table found. Create public.shopify_shop or public.shopity_shop, or set SHOP_TOKEN_TABLE.",
     );
   }
   return table;
 }
 
+async function getShopTableCapabilities(): Promise<ShopTableCapabilities> {
+  const tableName = await requireShopTable();
+  const columns = await getTableColumns(tableName);
+
+  return {
+    tableName,
+    hasAccessTokenExpiresAt: columns.has("access_token_expires_at"),
+    hasRefreshToken: columns.has("refresh_token"),
+    hasRefreshTokenExpiresAt: columns.has("refresh_token_expires_at"),
+  };
+}
+
 export async function upsertShopToken(input: UpsertShopTokenInput) {
-  const shopTable = await requireShopTable();
+  const {
+    tableName: shopTable,
+    hasAccessTokenExpiresAt,
+    hasRefreshToken,
+    hasRefreshTokenExpiresAt,
+  } = await getShopTableCapabilities();
   const timestampMs = nowMs();
   const callbackTimestamp =
     input.callbackTimestamp || new Date(timestampMs).toISOString();
 
+  const columns: string[] = [
+    "shop_domain",
+    "access_token",
+    "scopes",
+    "first_installed_at",
+    "installed_at",
+    "uninstalled_at",
+    "updated_at",
+    "last_auth_at",
+    "last_callback_timestamp",
+    "host",
+    "embedded",
+    "locale",
+    "associated_user_scope",
+  ];
+  const values: unknown[] = [
+    input.shopDomain,
+    input.accessToken,
+    input.scopes || null,
+    timestampMs,
+    timestampMs,
+    null,
+    timestampMs,
+    timestampMs,
+    callbackTimestamp,
+    input.host || null,
+    input.embedded || null,
+    input.locale || null,
+    input.associatedUserScope || null,
+  ];
+  const updateClauses: string[] = [
+    "access_token = EXCLUDED.access_token",
+    "scopes = EXCLUDED.scopes",
+    "installed_at = EXCLUDED.installed_at",
+    "uninstalled_at = NULL",
+    "updated_at = EXCLUDED.updated_at",
+    "last_auth_at = EXCLUDED.last_auth_at",
+    "last_callback_timestamp = EXCLUDED.last_callback_timestamp",
+    `host = COALESCE(EXCLUDED.host, ${shopTable}.host)`,
+    `embedded = COALESCE(EXCLUDED.embedded, ${shopTable}.embedded)`,
+    `locale = COALESCE(EXCLUDED.locale, ${shopTable}.locale)`,
+    `associated_user_scope = COALESCE(EXCLUDED.associated_user_scope, ${shopTable}.associated_user_scope)`,
+    `first_installed_at = COALESCE(${shopTable}.first_installed_at, EXCLUDED.first_installed_at)`,
+  ];
+
+  if (hasAccessTokenExpiresAt) {
+    columns.push("access_token_expires_at");
+    values.push(input.accessTokenExpiresAtMs ?? null);
+    updateClauses.push(
+      `access_token_expires_at = COALESCE(EXCLUDED.access_token_expires_at, ${shopTable}.access_token_expires_at)`,
+    );
+  }
+
+  if (hasRefreshToken) {
+    columns.push("refresh_token");
+    values.push(input.refreshToken ?? null);
+    updateClauses.push(
+      `refresh_token = COALESCE(EXCLUDED.refresh_token, ${shopTable}.refresh_token)`,
+    );
+  }
+
+  if (hasRefreshTokenExpiresAt) {
+    columns.push("refresh_token_expires_at");
+    values.push(input.refreshTokenExpiresAtMs ?? null);
+    updateClauses.push(
+      `refresh_token_expires_at = COALESCE(EXCLUDED.refresh_token_expires_at, ${shopTable}.refresh_token_expires_at)`,
+    );
+  }
+
   await query(
     `
       INSERT INTO ${shopTable} (
-        shop_domain,
-        access_token,
-        scopes,
-        first_installed_at,
-        installed_at,
-        uninstalled_at,
-        updated_at,
-        last_auth_at,
-        last_callback_timestamp,
-        host,
-        embedded,
-        locale,
-        associated_user_scope
+        ${columns.join(",\n        ")}
       )
       VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+        ${values.map((_, index) => `$${index + 1}`).join(", ")}
       )
       ON CONFLICT (shop_domain) DO UPDATE
       SET
-        access_token = EXCLUDED.access_token,
-        scopes = EXCLUDED.scopes,
-        installed_at = EXCLUDED.installed_at,
-        uninstalled_at = NULL,
-        updated_at = EXCLUDED.updated_at,
-        last_auth_at = EXCLUDED.last_auth_at,
-        last_callback_timestamp = EXCLUDED.last_callback_timestamp,
-        host = COALESCE(EXCLUDED.host, ${shopTable}.host),
-        embedded = COALESCE(EXCLUDED.embedded, ${shopTable}.embedded),
-        locale = COALESCE(EXCLUDED.locale, ${shopTable}.locale),
-        associated_user_scope = COALESCE(EXCLUDED.associated_user_scope, ${shopTable}.associated_user_scope),
-        first_installed_at = COALESCE(${shopTable}.first_installed_at, EXCLUDED.first_installed_at)
+        ${updateClauses.join(",\n        ")}
     `,
-    [
-      input.shopDomain,
-      input.accessToken,
-      input.scopes || null,
-      timestampMs,
-      timestampMs,
-      null,
-      timestampMs,
-      timestampMs,
-      callbackTimestamp,
-      input.host || null,
-      input.embedded || null,
-      input.locale || null,
-      input.associatedUserScope || null,
-    ],
+    values,
   );
 }
 
