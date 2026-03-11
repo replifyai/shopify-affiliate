@@ -6,7 +6,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { payload, topic, shop } = await authenticate.webhook(request);
   console.log(`Received ${topic} webhook for ${shop}`);
 
-  const current = payload.current as string[];
+  const current = Array.isArray((payload as { current?: unknown }).current)
+    ? (payload as { current: unknown[] }).current.filter(
+        (value): value is string => typeof value === "string" && value.length > 0,
+      )
+    : [];
   const scopeCsv = current?.join(",") || null;
 
   try {

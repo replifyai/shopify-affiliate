@@ -49,15 +49,6 @@ function asGraphqlErrors(errors: unknown): GraphqlError[] {
   return Array.isArray(errors) ? (errors as GraphqlError[]) : [];
 }
 
-function hasNoWebPixelMessage(errors: unknown): boolean {
-  const graphqlErrors = asGraphqlErrors(errors);
-  return graphqlErrors.some((error) =>
-    (error.message || "")
-      .toLowerCase()
-      .includes("no web pixel was found for this app"),
-  );
-}
-
 function hasAlreadyExistsMessage(errors: unknown): boolean {
   const graphqlErrors = asGraphqlErrors(errors);
   return graphqlErrors.some((error) =>

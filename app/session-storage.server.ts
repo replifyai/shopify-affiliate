@@ -1,4 +1,4 @@
-import { Session } from "@shopify/shopify-api";
+import { Session, type SessionParams } from "@shopify/shopify-api";
 import type { SessionStorage } from "@shopify/shopify-app-session-storage";
 import { query } from "./db.server";
 import { upsertShopToken } from "./shopify-shop.server";
@@ -28,8 +28,8 @@ function deserializeSession(data: StoredSession): Session {
     refreshTokenExpires: data.refreshTokenExpires
       ? new Date(data.refreshTokenExpires)
       : undefined,
-  };
-  return new Session(params as any);
+  } as unknown as SessionParams;
+  return new Session(params);
 }
 
 export class PostgresSessionStorage implements SessionStorage {

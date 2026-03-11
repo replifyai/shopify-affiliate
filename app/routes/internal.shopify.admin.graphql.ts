@@ -1,4 +1,4 @@
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+import type { ActionFunctionArgs } from "react-router";
 import {
   authenticateGatewayRequest,
   methodNotAllowed,
@@ -11,7 +11,7 @@ type GraphqlBody = {
   variables?: unknown;
 };
 
-export const loader = async (_args: LoaderFunctionArgs) =>
+export const loader = async () =>
   methodNotAllowed(["POST"]);
 
 export const action = async ({ request }: ActionFunctionArgs) => {

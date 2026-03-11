@@ -1,33 +1,41 @@
 export default function AdditionalPage() {
   return (
-    <s-page heading="Additional page">
-      <s-section heading="Multiple pages">
+    <s-page heading="Setup Guide">
+      <s-section heading="Webhook Forwarding">
         <s-paragraph>
-          The app template comes with an additional page which demonstrates how
-          to create multiple pages within app navigation using{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/tools/app-bridge"
-            target="_blank"
-          >
-            App Bridge
-          </s-link>
-          .
+          Configure <code>ORDER_EVENTS_WEBHOOK_FORWARD_URL</code> to forward
+          order, refund, and fulfillment events to your backend.
         </s-paragraph>
         <s-paragraph>
-          To create your own page and have it show up in the app navigation, add
-          a page inside <code>app/routes</code>, and a link to it in the{" "}
-          <code>&lt;ui-nav-menu&gt;</code> component found in{" "}
-          <code>app/routes/app.jsx</code>.
+          Configure <code>ORDER_CREATE_WEBHOOK_FORWARD_URL</code> when you need
+          a separate destination for the <code>orders/create</code> webhook.
         </s-paragraph>
       </s-section>
-      <s-section slot="aside" heading="Resources">
+
+      <s-section heading="Compliance Webhooks">
+        <s-paragraph>
+          This app handles required Shopify privacy webhooks:
+          <code> customers/data_request</code>, <code>customers/redact</code>,
+          and <code>shop/redact</code>.
+        </s-paragraph>
+      </s-section>
+
+      <s-section slot="aside" heading="Shopify References">
         <s-unordered-list>
           <s-list-item>
             <s-link
-              href="https://shopify.dev/docs/apps/design-guidelines/navigation#app-nav"
+              href="https://shopify.dev/docs/apps/launch/app-requirements-checklist"
               target="_blank"
             >
-              App nav best practices
+              App requirements checklist
+            </s-link>
+          </s-list-item>
+          <s-list-item>
+            <s-link
+              href="https://shopify.dev/docs/apps/store/security/gdpr-webhooks"
+              target="_blank"
+            >
+              GDPR webhook requirements
             </s-link>
           </s-list-item>
         </s-unordered-list>

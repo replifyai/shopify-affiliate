@@ -7,7 +7,6 @@
     const COOKIE_NAME = "__hqref";
     const SMCHANNEL_COOKIE = "__hqsmchannel";
     const COOKIE_DAYS = 1;
-    const REF_PARAM = "ref";
   
     /* ==============================
        Cookie helpers

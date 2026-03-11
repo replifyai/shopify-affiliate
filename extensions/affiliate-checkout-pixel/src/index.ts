@@ -3,12 +3,51 @@ import { register } from "@shopify/web-pixels-extension";
 const ENDPOINT =
   "https://asia-south1-touch-17fa9.cloudfunctions.net/pixelWebhook";
 
-type AnyPayload = Record<string, any>;
+type Payload = Record<string, unknown>;
 type BrowserApi = {
   cookie: {
     get(name?: string): Promise<string>;
   };
 };
+
+type FallbackContext = {
+  hostname?: string | null;
+  pathname?: string | null;
+  referrer?: string | null;
+};
+
+function asPayload(value: unknown): Payload {
+  if (value && typeof value === "object") {
+    return value as Payload;
+  }
+  return {};
+}
+
+function readPath(source: unknown, path: string[]) {
+  let current: unknown = source;
+  for (const key of path) {
+    if (!current || typeof current !== "object") return undefined;
+    current = (current as Payload)[key];
+  }
+  return current;
+}
+
+function readString(source: unknown, path: string[]) {
+  const value = readPath(source, path);
+  return typeof value === "string" ? value : null;
+}
+
+function readStringOrNumber(source: unknown, path: string[]) {
+  const value = readPath(source, path);
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  return null;
+}
+
+function readNumber(source: unknown, path: string[]) {
+  const value = readPath(source, path);
+  return typeof value === "number" ? value : null;
+}
 
 async function getCookie(browser: BrowserApi, name: string): Promise<string> {
   try {
@@ -18,61 +57,61 @@ async function getCookie(browser: BrowserApi, name: string): Promise<string> {
   }
 }
 
-function extractOrderInfo(payload: AnyPayload = {}) {
-  const order =
-    payload?.data?.checkout?.order ||
-    payload?.checkout?.order ||
-    payload?.order ||
-    payload?.data?.order ||
-    null;
+function extractOrderInfo(payload: Payload) {
+  const order = (readPath(payload, ["data", "checkout", "order"]) ||
+    readPath(payload, ["checkout", "order"]) ||
+    readPath(payload, ["order"]) ||
+    readPath(payload, ["data", "order"])) as Payload | undefined;
 
-  if (!order) return null;
+  if (!order || typeof order !== "object") return null;
 
   return {
-    order_id: order.id || null,
-    order_name: order.name || null,
-    order_number: order.order_number || null,
+    order_id: readStringOrNumber(order, ["id"]),
+    order_name: readString(order, ["name"]),
+    order_number: readStringOrNumber(order, ["order_number"]),
   };
 }
 
 async function buildMinimalPayload(
   eventName: string,
-  payload: AnyPayload = {},
+  payload: Payload,
   browser: BrowserApi,
-  fallbackContext?: {
-    hostname?: string | null;
-    pathname?: string | null;
-    referrer?: string | null;
-  },
+  fallbackContext?: FallbackContext,
 ) {
   const shopHost =
-    payload?.context?.document?.location?.hostname ||
-    payload?.context?.window?.location?.hostname ||
+    readString(payload, ["context", "document", "location", "hostname"]) ||
+    readString(payload, ["context", "window", "location", "hostname"]) ||
     fallbackContext?.hostname ||
     null;
 
   const path =
-    payload?.context?.document?.location?.pathname ||
-    payload?.context?.window?.location?.pathname ||
+    readString(payload, ["context", "document", "location", "pathname"]) ||
+    readString(payload, ["context", "window", "location", "pathname"]) ||
     fallbackContext?.pathname ||
     null;
 
   const referrer =
-    payload?.context?.document?.referrer || fallbackContext?.referrer || "";
+    readString(payload, ["context", "document", "referrer"]) ||
+    fallbackContext?.referrer ||
+    "";
 
   const currency =
-    payload?.context?.currency ||
-    payload?.data?.checkout?.currencyCode ||
-    payload?.checkout?.currencyCode ||
+    readString(payload, ["context", "currency"]) ||
+    readString(payload, ["data", "checkout", "currencyCode"]) ||
+    readString(payload, ["checkout", "currencyCode"]) ||
     null;
 
   const customerId =
-    payload?.customer?.id ||
-    payload?.data?.checkout?.order?.customer?.id ||
-    payload?.data?.order?.customer?.id ||
+    readStringOrNumber(payload, ["customer", "id"]) ||
+    readStringOrNumber(payload, ["data", "checkout", "order", "customer", "id"]) ||
+    readStringOrNumber(payload, ["data", "order", "customer", "id"]) ||
     null;
 
   const orderInfo = extractOrderInfo(payload);
+  const total =
+    readNumber(payload, ["data", "checkout", "totalPrice", "amount"]) ??
+    readNumber(payload, ["data", "checkout", "totalPrice"]) ??
+    readNumber(payload, ["totalPrice"]);
 
   return {
     event: eventName,
@@ -86,29 +125,21 @@ async function buildMinimalPayload(
     sm_channel: (await getCookie(browser, "__hqsmchannel")) || "",
     ...(orderInfo || {}),
     email:
-      payload?.data?.checkout?.email ||
-      payload?.checkout?.email ||
-      payload?.order?.email ||
-      payload?.data?.order?.email ||
+      readString(payload, ["data", "checkout", "email"]) ||
+      readString(payload, ["checkout", "email"]) ||
+      readString(payload, ["order", "email"]) ||
+      readString(payload, ["data", "order", "email"]) ||
       null,
-    total:
-      payload?.data?.checkout?.totalPrice?.amount ||
-      payload?.data?.checkout?.totalPrice ||
-      payload?.totalPrice ||
-      null,
+    total,
     data: payload,
   };
 }
 
 async function sendEvent(
   eventName: string,
-  payload: AnyPayload,
+  payload: Payload,
   browser: BrowserApi,
-  fallbackContext?: {
-    hostname?: string | null;
-    pathname?: string | null;
-    referrer?: string | null;
-  },
+  fallbackContext?: FallbackContext,
 ) {
   try {
     const body = await buildMinimalPayload(
@@ -123,23 +154,28 @@ async function sendEvent(
       headers: { "Content-Type": "application/json" },
       keepalive: true,
       body: JSON.stringify(body),
-    }).catch((err) => console.error("Pixel fetch error:", err));
-  } catch (err) {
-    console.error("Pixel tracking error:", err);
+    }).catch((error) => console.error("Pixel fetch error:", error));
+  } catch (error) {
+    console.error("Pixel tracking error:", error);
   }
 }
 
 register(({ analytics, browser, init }) => {
-  const fallbackContext = {
-    hostname: init?.context?.document?.location?.hostname || null,
-    pathname: init?.context?.document?.location?.pathname || null,
-    referrer: init?.context?.document?.referrer || null,
+  const initialContext = asPayload(init);
+  const fallbackContext: FallbackContext = {
+    hostname:
+      readString(initialContext, ["context", "document", "location", "hostname"]) ||
+      null,
+    pathname:
+      readString(initialContext, ["context", "document", "location", "pathname"]) ||
+      null,
+    referrer: readString(initialContext, ["context", "document", "referrer"]) || null,
   };
 
   analytics.subscribe("checkout_completed", async (event: unknown) => {
     await sendEvent(
       "checkout_completed",
-      (event as AnyPayload) || {},
+      asPayload(event),
       browser,
       fallbackContext,
     );

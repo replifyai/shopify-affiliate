@@ -1,4 +1,4 @@
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+import type { ActionFunctionArgs } from "react-router";
 import { unauthenticated } from "../shopify.server";
 import { upsertShopToken } from "../shopify-shop.server";
 
@@ -64,7 +64,7 @@ function normalizeShop(value: unknown) {
   return normalized;
 }
 
-export const loader = async (_args: LoaderFunctionArgs) =>
+export const loader = async () =>
   new Response("Method Not Allowed", {
     status: 405,
     headers: { Allow: "POST" },

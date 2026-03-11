@@ -1,7 +1,6 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
-import { authenticate } from "../shopify.server";
-import { apiVersion } from "../shopify.server";
+import { apiVersion, authenticate } from "../shopify.server";
 import { ensureWebPixelConnected } from "../pixels.server";
 
 const CONFIG_BASED_WEBHOOKS = [
@@ -14,6 +13,9 @@ const CONFIG_BASED_WEBHOOKS = [
   { topic: "refunds/create", uri: "/webhooks/refunds/create" },
   { topic: "fulfillments/create", uri: "/webhooks/fulfillments/create" },
   { topic: "fulfillments/update", uri: "/webhooks/fulfillments/update" },
+  { topic: "customers/data_request", uri: "/webhooks/customers/data_request" },
+  { topic: "customers/redact", uri: "/webhooks/customers/redact" },
+  { topic: "shop/redact", uri: "/webhooks/shop/redact" },
 ];
 
 const INTEGRATION_STATUS_QUERY = `#graphql

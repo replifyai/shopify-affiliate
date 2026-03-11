@@ -167,49 +167,6 @@ const LIST_DISCOUNTS_QUERY = `#graphql
   }
 `;
 
-const CREATE_DISCOUNT_MUTATION = `#graphql
-  mutation InternalCreateDiscountCode($basicCodeDiscount: DiscountCodeBasicInput!) {
-    discountCodeBasicCreate(basicCodeDiscount: $basicCodeDiscount) {
-      codeDiscountNode {
-        id
-        codeDiscount {
-          ... on DiscountCodeBasic {
-            title
-            status
-            startsAt
-            endsAt
-            usageLimit
-            appliesOncePerCustomer
-            codes(first: 5) {
-              nodes {
-                code
-              }
-            }
-            customerGets {
-              value {
-                ... on DiscountPercentage {
-                  percentage
-                }
-                ... on DiscountAmount {
-                  amount {
-                    amount
-                    currencyCode
-                  }
-                }
-              }
-            }
-            summary
-          }
-        }
-      }
-      userErrors {
-        field
-        message
-      }
-    }
-  }
-`;
-
 const UPDATE_DISCOUNT_MUTATION = `#graphql
   mutation InternalUpdateDiscountCode(
     $id: ID!
@@ -333,8 +290,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  if (request.method !== "POST" && request.method !== "PATCH") {
-    return methodNotAllowed(["GET", "POST", "PATCH"]);
+  if (request.method !== "PATCH") {
+    return methodNotAllowed(["GET", "PATCH"]);
   }
 
   const body = await parseJsonBody(request);
@@ -352,101 +309,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (!auth.ok) return auth.response;
 
   try {
-    if (request.method === "POST") {
-      const title = typeof body.title === "string" ? body.title : "";
-      const code = typeof body.code === "string" ? body.code : "";
-      const discountType =
-        typeof body.discountType === "string" ? body.discountType : "percentage";
-      const discountValue = body.discountValue;
-      const startsAt =
-        typeof body.startsAt === "string"
-          ? body.startsAt
-          : new Date().toISOString();
-      const endsAt = hasOwn(body, "endsAt") ? body.endsAt : null;
-      const usageLimit = hasOwn(body, "usageLimit") ? body.usageLimit : null;
-      const appliesOncePerCustomer = hasOwn(body, "appliesOncePerCustomer")
-        ? Boolean(body.appliesOncePerCustomer)
-        : true;
-      const appliesToAllItems = hasOwn(body, "appliesToAllItems")
-        ? Boolean(body.appliesToAllItems)
-        : true;
-      const productIds = Array.isArray(body.productIds)
-        ? body.productIds.filter((id): id is string => typeof id === "string")
-        : [];
-      const collectionIds = Array.isArray(body.collectionIds)
-        ? body.collectionIds.filter((id): id is string => typeof id === "string")
-        : [];
-
-      if (!title || !code || discountValue === undefined) {
-        return Response.json(
-          {
-            ok: false,
-            error: "Missing required fields: title, code, discountValue",
-          },
-          { status: 400 },
-        );
-      }
-
-      const basicCodeDiscount = {
-        title,
-        code,
-        startsAt,
-        endsAt,
-        usageLimit,
-        appliesOncePerCustomer,
-        customerGets: {
-          value: buildValueInput(
-            discountType,
-            discountValue as number | string,
-          ),
-          items: buildItemsInput({
-            appliesToAllItems,
-            productIds,
-            collectionIds,
-          }),
-        },
-        context: {
-          all: true,
-        },
-      };
-
-      const response = await auth.admin.graphql(CREATE_DISCOUNT_MUTATION, {
-        variables: { basicCodeDiscount },
-      });
-      const payload = (await response.json()) as {
-        data?: {
-          discountCodeBasicCreate?: {
-            codeDiscountNode?: unknown;
-            userErrors?: Array<{ field?: string[]; message?: string }>;
-          };
-        };
-        errors?: unknown[];
-      };
-
-      const graphqlErrors = payload.errors ?? [];
-      const userErrors = payload.data?.discountCodeBasicCreate?.userErrors ?? [];
-
-      if (graphqlErrors.length > 0 || userErrors.length > 0) {
-        return Response.json(
-          {
-            ok: false,
-            shop: auth.shop,
-            errors: {
-              graphql: graphqlErrors,
-              user: userErrors,
-            },
-          },
-          { status: 422 },
-        );
-      }
-
-      return Response.json({
-        ok: true,
-        shop: auth.shop,
-        discount: payload.data?.discountCodeBasicCreate?.codeDiscountNode ?? null,
-      });
-    }
-
     const id = typeof body.id === "string" ? body.id : "";
     if (!id) {
       return Response.json(
