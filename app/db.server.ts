@@ -26,7 +26,9 @@ const shouldUseSsl =
 function createPool() {
   const config: PoolConfig = {
     connectionString: databaseUrl,
-    max: process.env.NODE_ENV === "production" ? 5 : 10,
+    max: process.env.NODE_ENV === "production" ? 2 : 10,
+    connectionTimeoutMillis: 15000,
+    idleTimeoutMillis: 30000,
   };
 
   if (shouldUseSsl) {
@@ -65,8 +67,9 @@ async function ensureSessionTable() {
 }
 
 export const dbReady = ensureSessionTable().catch((error) => {
+  // Log but don't rethrow — table already exists in production.
+  // Rethrowing causes an unhandled rejection that kills the serverless process.
   console.error("Failed to initialize database session table:", error);
-  throw error;
 });
 
 export default pool;
