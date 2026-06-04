@@ -10,9 +10,9 @@ type GraphqlResult = {
 };
 
 export type EnsureWebPixelResult = {
-  status: "already_connected" | "created" | "failed";
+  status: "already_connected" | "created" | "updated" | "failed";
   webPixelId?: string;
-  step?: "query" | "create";
+  step?: "query" | "create" | "update";
   httpStatus?: number;
   userErrors?: Array<{ field?: string[]; message?: string }>;
   errors?: unknown;
@@ -36,6 +36,22 @@ const WEB_PIXEL_CREATE_MUTATION = `#graphql
     webPixelCreate(webPixel: $webPixel) {
       webPixel {
         id
+        settings
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
+
+const WEB_PIXEL_UPDATE_MUTATION = `#graphql
+  mutation UpdateWebPixel($id: ID!, $webPixel: WebPixelInput!) {
+    webPixelUpdate(id: $id, webPixel: $webPixel) {
+      webPixel {
+        id
+        settings
       }
       userErrors {
         field
@@ -50,8 +66,7 @@ function asGraphqlErrors(errors: unknown): GraphqlError[] {
 }
 
 function hasAlreadyExistsMessage(errors: unknown): boolean {
-  const graphqlErrors = asGraphqlErrors(errors);
-  return graphqlErrors.some((error) =>
+  return asGraphqlErrors(errors).some((error) =>
     /already exists|only one web pixel|already been set|update mutation/i.test(
       error.message || "",
     ),
@@ -63,7 +78,7 @@ async function shopifyGraphql(
   apiVersion: string,
   query: string,
   variables: Record<string, unknown> = {},
-) : Promise<GraphqlResult> {
+): Promise<GraphqlResult> {
   const response = await fetch(
     `https://${session.shop}/admin/api/${apiVersion}/graphql.json`,
     {
@@ -83,143 +98,132 @@ async function shopifyGraphql(
     body = null;
   }
 
-  return {
-    ok: response.ok,
-    status: response.status,
-    body,
-  };
+  return { ok: response.ok, status: response.status, body };
+}
+
+function buildPixelSettings(session: OfflineSession) {
+  const accountID = process.env.PIXEL_ACCOUNT_ID || session.shop;
+  const endpointUrl =
+    process.env.PIXEL_ENDPOINT_URL ||
+    (process.env.SHOPIFY_APP_URL
+      ? `${process.env.SHOPIFY_APP_URL.replace(/\/$/, "")}/api/pixel/track`
+      : "");
+
+  return JSON.stringify({ accountID, endpointUrl });
+}
+
+function settingsMatch(existing: unknown, desired: string) {
+  if (typeof existing !== "string") return false;
+  try {
+    return JSON.stringify(JSON.parse(existing)) === JSON.stringify(JSON.parse(desired));
+  } catch {
+    return existing === desired;
+  }
 }
 
 export async function ensureWebPixelConnected(
   session: OfflineSession,
   apiVersion: string,
-) : Promise<EnsureWebPixelResult> {
+): Promise<EnsureWebPixelResult> {
   try {
-    console.log(`[pixel-bootstrap] Ensuring web pixel for ${session.shop}`);
-    const accountID = process.env.PIXEL_ACCOUNT_ID || session.shop;
-    const createResponse = await shopifyGraphql(
+    const desiredSettings = buildPixelSettings(session);
+    console.log(`[pixel] ensuring web pixel for ${session.shop}`);
+
+    const existing = await shopifyGraphql(session, apiVersion, WEB_PIXEL_QUERY);
+    const existingBody = existing.body as
+      | { data?: { webPixel?: { id?: string; settings?: unknown } } }
+      | undefined;
+    const existingId = existingBody?.data?.webPixel?.id;
+    const existingSettings = existingBody?.data?.webPixel?.settings;
+
+    if (existingId) {
+      if (settingsMatch(existingSettings, desiredSettings)) {
+        return { status: "already_connected", webPixelId: existingId };
+      }
+
+      const update = await shopifyGraphql(
+        session,
+        apiVersion,
+        WEB_PIXEL_UPDATE_MUTATION,
+        { id: existingId, webPixel: { settings: desiredSettings } },
+      );
+      const updateBody = update.body as
+        | {
+            data?: {
+              webPixelUpdate?: {
+                webPixel?: { id?: string };
+                userErrors?: Array<{ field?: string[]; message?: string }>;
+              };
+            };
+          }
+        | undefined;
+      const updateErrors = updateBody?.data?.webPixelUpdate?.userErrors;
+      if (updateErrors?.length) {
+        return {
+          status: "failed",
+          step: "update",
+          userErrors: updateErrors,
+          webPixelId: existingId,
+        };
+      }
+      return { status: "updated", webPixelId: existingId };
+    }
+
+    const created = await shopifyGraphql(
       session,
       apiVersion,
       WEB_PIXEL_CREATE_MUTATION,
-      {
-        webPixel: {
-          settings: JSON.stringify({ accountID }),
-        },
-      },
+      { webPixel: { settings: desiredSettings } },
     );
 
-    const createBody = createResponse.body as
+    const createBody = created.body as
       | {
-          data?: { webPixelCreate?: { webPixel?: { id?: string }; userErrors?: Array<{ field?: string[]; message?: string }> } };
+          data?: {
+            webPixelCreate?: {
+              webPixel?: { id?: string };
+              userErrors?: Array<{ field?: string[]; message?: string }>;
+            };
+          };
           errors?: unknown;
         }
       | undefined;
-    const userErrors = createBody?.data?.webPixelCreate?.userErrors as
-      | Array<{ field?: string[]; message?: string }>
-      | undefined;
-    const webPixelId = createBody?.data?.webPixelCreate?.webPixel?.id as
-      | string
-      | undefined;
+    const userErrors = createBody?.data?.webPixelCreate?.userErrors;
+    const webPixelId = createBody?.data?.webPixelCreate?.webPixel?.id;
 
-    if (!createResponse.ok) {
-      const result: EnsureWebPixelResult = {
+    if (!created.ok) {
+      return {
         status: "failed",
         step: "create",
-        httpStatus: createResponse.status,
-        errors: createResponse.body,
+        httpStatus: created.status,
+        errors: created.body,
       };
-      console.error(`Web pixel create failed for ${session.shop}:`, result);
-      return result;
     }
 
-    if (createBody?.errors && hasAlreadyExistsMessage(createBody.errors)) {
-      const existingPixelResponse = await shopifyGraphql(
-        session,
-        apiVersion,
-        WEB_PIXEL_QUERY,
-      );
-      const existingBody = existingPixelResponse.body as
+    if (
+      hasAlreadyExistsMessage(createBody?.errors) ||
+      (userErrors && hasAlreadyExistsMessage(userErrors))
+    ) {
+      const refetch = await shopifyGraphql(session, apiVersion, WEB_PIXEL_QUERY);
+      const refetchBody = refetch.body as
         | { data?: { webPixel?: { id?: string } } }
         | undefined;
-      const existingPixelId = existingBody?.data?.webPixel?.id;
-      console.log(`Web pixel already connected for ${session.shop}`);
-      return { status: "already_connected", webPixelId: existingPixelId };
-    }
-
-    if (createBody?.errors) {
-      const result: EnsureWebPixelResult = {
-        status: "failed",
-        step: "create",
-        errors: createBody.errors,
+      return {
+        status: "already_connected",
+        webPixelId: refetchBody?.data?.webPixel?.id,
       };
-      console.error(`Web pixel create error for ${session.shop}:`, result);
-      return result;
-    }
-
-    if (userErrors?.length && hasAlreadyExistsMessage(userErrors)) {
-      const existingPixelResponse = await shopifyGraphql(
-        session,
-        apiVersion,
-        WEB_PIXEL_QUERY,
-      );
-      const existingBody = existingPixelResponse.body as
-        | { data?: { webPixel?: { id?: string } } }
-        | undefined;
-      const existingPixelId = existingBody?.data?.webPixel?.id;
-      console.log(`Web pixel already connected for ${session.shop}`);
-      return { status: "already_connected", webPixelId: existingPixelId };
     }
 
     if (userErrors?.length) {
-      const result: EnsureWebPixelResult = {
-        status: "failed",
-        step: "create",
-        userErrors,
-      };
-      console.error(`Web pixel connect user error for ${session.shop}:`, result);
-      return result;
+      return { status: "failed", step: "create", userErrors };
     }
 
     if (webPixelId) {
-      console.log(`Web pixel connected for ${session.shop} (${webPixelId})`);
       return { status: "created", webPixelId };
     }
 
-    const existingPixelResponse = await shopifyGraphql(
-      session,
-      apiVersion,
-      WEB_PIXEL_QUERY,
-    );
-    const existingBody = existingPixelResponse.body as
-      | { data?: { webPixel?: { id?: string } }; errors?: unknown }
-      | undefined;
-    const existingPixelId = existingBody?.data?.webPixel?.id as
-      | string
-      | undefined;
-
-    if (existingPixelId) {
-      console.log(
-        `Web pixel already connected for ${session.shop} (${existingPixelId})`,
-      );
-      return { status: "already_connected", webPixelId: existingPixelId };
-    }
-
-    const result: EnsureWebPixelResult = {
-      status: "failed",
-      step: "create",
-      errors: createResponse.body,
-    };
-    console.error(
-      `Web pixel connect returned no id for ${session.shop}:`,
-      result,
-    );
-    return result;
+    return { status: "failed", step: "create", errors: created.body };
   } catch (error) {
-    const result: EnsureWebPixelResult = {
-      status: "failed",
-      errors: String(error),
-    };
-    console.error(`Web pixel connect exception for ${session.shop}:`, result);
-    return result;
+    console.error(`[pixel] connect exception for ${session.shop}:`, error);
+    return { status: "failed", errors: String(error) };
   }
 }

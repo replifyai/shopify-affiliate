@@ -1,7 +1,6 @@
 import type { AuthenticatedWebhook } from "./webhook-utils.server";
 import { authenticateWebhookRequest } from "./webhook-utils.server";
 import { sessionStorage } from "./shopify.server";
-import { markShopUninstalled } from "./shopify-shop.server";
 
 function parseShopDomain(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
@@ -22,45 +21,33 @@ function parseCustomerId(payload: unknown): string | null {
 export async function handleCustomersDataRequest(webhook: AuthenticatedWebhook) {
   const { topic, shop, payload } = webhook;
   const customerId = parseCustomerId(payload);
-
   console.log(
-    `[webhook] ${topic} received for ${shop}${customerId ? ` (customer: ${customerId})` : ""}`,
+    `[gdpr] ${topic} received for ${shop}${customerId ? ` (customer: ${customerId})` : ""}`,
   );
-
   return new Response();
 }
 
 export async function handleCustomersRedact(webhook: AuthenticatedWebhook) {
   const { topic, shop, payload } = webhook;
   const customerId = parseCustomerId(payload);
-
   console.log(
-    `[webhook] ${topic} received for ${shop}${customerId ? ` (customer: ${customerId})` : ""}`,
+    `[gdpr] ${topic} received for ${shop}${customerId ? ` (customer: ${customerId})` : ""}`,
   );
-
   return new Response();
 }
 
 export async function handleShopRedact(webhook: AuthenticatedWebhook) {
   const { topic, shop, payload } = webhook;
-  const shopDomainFromPayload = parseShopDomain(payload) || shop;
-
-  console.log(`[webhook] ${topic} received for ${shopDomainFromPayload}`);
+  const shopDomain = parseShopDomain(payload) || shop;
+  console.log(`[gdpr] ${topic} received for ${shopDomain}`);
 
   try {
-    await markShopUninstalled(shopDomainFromPayload);
-    const sessions = await sessionStorage.findSessionsByShop(shopDomainFromPayload);
-    await sessionStorage.deleteSessions(sessions.map((storedSession) => storedSession.id));
+    const sessions = await sessionStorage.findSessionsByShop(shopDomain);
+    await sessionStorage.deleteSessions(sessions.map((stored) => stored.id));
   } catch (error) {
-    console.error(
-      `Failed to process ${topic} webhook for ${shopDomainFromPayload}:`,
-      error,
-    );
+    console.error(`Failed to delete sessions for ${shopDomain} during shop/redact:`, error);
     return Response.json(
-      {
-        ok: false,
-        error: "Failed to process shop redaction request",
-      },
+      { ok: false, error: "Failed to process shop redaction request" },
       { status: 500 },
     );
   }
@@ -68,7 +55,6 @@ export async function handleShopRedact(webhook: AuthenticatedWebhook) {
   return new Response();
 }
 
-// Wrappers for individual compliance routes — authenticate and dispatch
 export async function handleCustomersDataRequestWebhook(request: Request) {
   const webhook = await authenticateWebhookRequest(request);
   return handleCustomersDataRequest(webhook);

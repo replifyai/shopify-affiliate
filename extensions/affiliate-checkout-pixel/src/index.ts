@@ -1,7 +1,6 @@
 import { register } from "@shopify/web-pixels-extension";
 
-const ENDPOINT =
-  "https://asia-south1-touch-17fa9.cloudfunctions.net/pixelWebhook";
+const DEFAULT_ENDPOINT = "https://affiliateapp.saleshq.ai/api/pixel/track";
 
 type Payload = Record<string, unknown>;
 type BrowserApi = {
@@ -72,8 +71,9 @@ function extractOrderInfo(payload: Payload) {
   };
 }
 
-async function buildMinimalPayload(
+async function buildPayload(
   eventName: string,
+  accountID: string,
   payload: Payload,
   browser: BrowserApi,
   fallbackContext?: FallbackContext,
@@ -115,6 +115,7 @@ async function buildMinimalPayload(
 
   return {
     event: eventName,
+    accountID,
     shop: shopHost,
     path,
     referrer,
@@ -136,20 +137,23 @@ async function buildMinimalPayload(
 }
 
 async function sendEvent(
+  endpoint: string,
   eventName: string,
+  accountID: string,
   payload: Payload,
   browser: BrowserApi,
   fallbackContext?: FallbackContext,
 ) {
   try {
-    const body = await buildMinimalPayload(
+    const body = await buildPayload(
       eventName,
+      accountID,
       payload,
       browser,
       fallbackContext,
     );
 
-    fetch(ENDPOINT, {
+    fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       keepalive: true,
@@ -160,7 +164,16 @@ async function sendEvent(
   }
 }
 
-register(({ analytics, browser, init }) => {
+type Settings = {
+  accountID?: string;
+  endpointUrl?: string;
+};
+
+register(({ analytics, browser, init, settings }) => {
+  const cfg = (settings as Settings | undefined) || {};
+  const endpoint = (cfg.endpointUrl && cfg.endpointUrl.trim()) || DEFAULT_ENDPOINT;
+  const accountID = (cfg.accountID && cfg.accountID.trim()) || "";
+
   const initialContext = asPayload(init);
   const fallbackContext: FallbackContext = {
     hostname:
@@ -174,7 +187,9 @@ register(({ analytics, browser, init }) => {
 
   analytics.subscribe("checkout_completed", async (event: unknown) => {
     await sendEvent(
+      endpoint,
       "checkout_completed",
+      accountID,
       asPayload(event),
       browser,
       fallbackContext,

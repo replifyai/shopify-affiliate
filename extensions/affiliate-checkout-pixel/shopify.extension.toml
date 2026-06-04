@@ -9,8 +9,16 @@ type = "object"
 
 [settings.fields.accountID]
 name = "Account ID"
-description = "Account ID"
+description = "Account identifier passed along with each event."
 type = "single_line_text_field"
-validations =  [
+validations = [
+  { name = "min", value = "1" }
+]
+
+[settings.fields.endpointUrl]
+name = "Endpoint URL"
+description = "App URL that receives pixel events (e.g. https://affiliateapp.saleshq.ai/api/pixel/track)."
+type = "single_line_text_field"
+validations = [
   { name = "min", value = "1" }
 ]

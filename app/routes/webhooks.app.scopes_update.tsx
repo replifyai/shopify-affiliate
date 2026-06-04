@@ -1,10 +1,9 @@
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate, sessionStorage } from "../shopify.server";
-import { updateShopScopes } from "../shopify-shop.server";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { payload, topic, shop } = await authenticate.webhook(request);
-  console.log(`Received ${topic} webhook for ${shop}`);
+  console.log(`[webhook] ${topic} received for ${shop}`);
 
   const current = Array.isArray((payload as { current?: unknown }).current)
     ? (payload as { current: unknown[] }).current.filter(
@@ -12,12 +11,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       )
     : [];
   const scopeCsv = current?.join(",") || null;
-
-  try {
-    await updateShopScopes(shop, scopeCsv);
-  } catch (error) {
-    console.error(`Failed to update scopes for ${shop} in shop token table:`, error);
-  }
 
   try {
     const sessions = await sessionStorage.findSessionsByShop(shop);

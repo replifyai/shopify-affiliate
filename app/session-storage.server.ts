@@ -1,7 +1,6 @@
 import { Session, type SessionParams } from "@shopify/shopify-api";
 import type { SessionStorage } from "@shopify/shopify-app-session-storage";
 import { query } from "./db.server";
-import { upsertShopToken } from "./shopify-shop.server";
 import { syncSessionToBackend } from "./token-sync.server";
 
 type StoredSession = {
@@ -39,23 +38,8 @@ export class PostgresSessionStorage implements SessionStorage {
     await this.bootstrapReady;
   }
 
-  private async syncOfflineToken(session: Session) {
+  private async forwardRefreshedOfflineToken(session: Session) {
     if (session.isOnline || !session.accessToken) return;
-
-    try {
-      await upsertShopToken({
-        shopDomain: session.shop,
-        accessToken: session.accessToken,
-        accessTokenExpiresAtMs: session.expires ? session.expires.getTime() : null,
-        refreshToken: session.refreshToken || null,
-        refreshTokenExpiresAtMs: session.refreshTokenExpires
-          ? session.refreshTokenExpires.getTime()
-          : null,
-        scopes: session.scope || null,
-      });
-    } catch (error) {
-      console.error(`Failed to sync offline token for ${session.shop}:`, error);
-    }
 
     try {
       await syncSessionToBackend({
@@ -112,7 +96,7 @@ export class PostgresSessionStorage implements SessionStorage {
       ],
     );
 
-    await this.syncOfflineToken(session);
+    await this.forwardRefreshedOfflineToken(session);
 
     return true;
   }

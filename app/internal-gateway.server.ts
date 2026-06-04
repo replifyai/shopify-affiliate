@@ -1,5 +1,4 @@
 import { unauthenticated } from "./shopify.server";
-import { upsertShopToken } from "./shopify-shop.server";
 
 type UnauthenticatedAdminContext = Awaited<
   ReturnType<(typeof unauthenticated)["admin"]>
@@ -22,11 +21,7 @@ export type GatewayAuthResult =
 
 const MYSHOPIFY_DOMAIN_REGEX = /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i;
 
-function toMs(value?: Date | null) {
-  return value ? value.getTime() : null;
-}
-
-function getGatewaySecret() {
+export function getGatewaySecret() {
   return (
     process.env.INTERNAL_GATEWAY_SECRET ||
     process.env.INTERNAL_TOKEN_RESOLVE_SECRET ||
@@ -36,7 +31,7 @@ function getGatewaySecret() {
   );
 }
 
-function getProvidedSecret(request: Request) {
+export function getProvidedSecret(request: Request) {
   const directHeader =
     request.headers.get("x-internal-gateway-secret") ||
     request.headers.get("x-token-resolve-secret") ||
@@ -51,7 +46,7 @@ function getProvidedSecret(request: Request) {
   return "";
 }
 
-function normalizeShop(value: unknown) {
+export function normalizeShop(value: unknown) {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase();
   if (!MYSHOPIFY_DOMAIN_REGEX.test(normalized)) return null;
@@ -65,10 +60,7 @@ export function methodNotAllowed(allowed: string[]) {
   });
 }
 
-export function resolveShopFromRequest(
-  request: Request,
-  bodyShop?: unknown,
-) {
+export function resolveShopFromRequest(request: Request, bodyShop?: unknown) {
   const url = new URL(request.url);
   const candidate =
     bodyShop ||
@@ -79,7 +71,7 @@ export function resolveShopFromRequest(
   return normalizeShop(candidate);
 }
 
-function getAuthError(request: Request) {
+export function verifyGatewaySecret(request: Request) {
   const expectedSecret = getGatewaySecret();
   if (!expectedSecret) {
     return Response.json(
@@ -94,13 +86,7 @@ function getAuthError(request: Request) {
 
   const providedSecret = getProvidedSecret(request);
   if (!providedSecret || providedSecret !== expectedSecret) {
-    return Response.json(
-      {
-        ok: false,
-        error: "Unauthorized",
-      },
-      { status: 401 },
-    );
+    return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
   return null;
@@ -108,14 +94,10 @@ function getAuthError(request: Request) {
 
 export async function authenticateGatewayRequest(
   request: Request,
-  options?: {
-    shop?: unknown;
-  },
+  options?: { shop?: unknown },
 ): Promise<GatewayAuthResult> {
-  const authError = getAuthError(request);
-  if (authError) {
-    return { ok: false, response: authError };
-  }
+  const authError = verifyGatewaySecret(request);
+  if (authError) return { ok: false, response: authError };
 
   const shop = resolveShopFromRequest(request, options?.shop);
   if (!shop) {
@@ -147,32 +129,13 @@ export async function authenticateGatewayRequest(
       };
     }
 
-    await upsertShopToken({
-      shopDomain: session.shop,
-      accessToken: session.accessToken,
-      accessTokenExpiresAtMs: toMs(session.expires),
-      refreshToken: session.refreshToken || null,
-      refreshTokenExpiresAtMs: toMs(session.refreshTokenExpires),
-      scopes: session.scope || null,
-      locale: session.onlineAccessInfo?.associated_user?.locale || null,
-      associatedUserScope: session.onlineAccessInfo?.associated_user_scope || null,
-    });
-
-    return {
-      ok: true,
-      shop: session.shop,
-      admin,
-      session,
-    };
+    return { ok: true, shop: session.shop, admin, session };
   } catch (error) {
     console.error(`[internal-gateway] Auth failure for ${shop}:`, error);
     return {
       ok: false,
       response: Response.json(
-        {
-          ok: false,
-          error: "Failed to authenticate internal gateway request",
-        },
+        { ok: false, error: "Failed to authenticate internal gateway request" },
         { status: 500 },
       ),
     };

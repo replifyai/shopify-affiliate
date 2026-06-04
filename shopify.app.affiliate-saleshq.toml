@@ -11,6 +11,7 @@ automatically_update_urls_on_dev = true
 [webhooks]
 api_version = "2025-10"
 
+# Lifecycle webhooks stay local so the app can manage its own session storage.
 [[webhooks.subscriptions]]
 topics = [ "app/uninstalled" ]
 uri = "/webhooks/app/uninstalled"
@@ -19,37 +20,24 @@ uri = "/webhooks/app/uninstalled"
 topics = [ "app/scopes_update" ]
 uri = "/webhooks/app/scopes_update"
 
-[[webhooks.subscriptions]]
-topics = [ "orders/create" ]
-uri = "/webhooks/orders/create"
-
-[[webhooks.subscriptions]]
-topics = [ "orders/paid" ]
-uri = "/webhooks/orders/paid"
-
-[[webhooks.subscriptions]]
-topics = [ "orders/updated" ]
-uri = "/webhooks/orders/updated"
-
-[[webhooks.subscriptions]]
-topics = [ "orders/cancelled" ]
-uri = "/webhooks/orders/cancelled"
-
-[[webhooks.subscriptions]]
-topics = [ "refunds/create" ]
-uri = "/webhooks/refunds/create"
-
-[[webhooks.subscriptions]]
-topics = [ "fulfillments/create" ]
-uri = "/webhooks/fulfillments/create"
-
-[[webhooks.subscriptions]]
-topics = [ "fulfillments/update" ]
-uri = "/webhooks/fulfillments/update"
-
+# Compliance webhooks (GDPR) must be handled by the app to pass App Store review.
 [[webhooks.subscriptions]]
 compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
 uri = "/webhooks/gdpr"
+
+# Order / refund / fulfillment events are delivered directly to the backend.
+# The backend verifies HMAC using the app's API secret.
+[[webhooks.subscriptions]]
+topics = [
+  "orders/create",
+  "orders/paid",
+  "orders/updated",
+  "orders/cancelled",
+  "refunds/create",
+  "fulfillments/create",
+  "fulfillments/update",
+]
+uri = "https://shopifyallinone-dkhjjaxofq-el.a.run.app/"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes

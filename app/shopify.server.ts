@@ -7,7 +7,6 @@ import {
 import { dbReady } from "./db.server";
 import { ensureWebPixelConnected } from "./pixels.server";
 import { PostgresSessionStorage } from "./session-storage.server";
-import { upsertShopToken } from "./shopify-shop.server";
 import { syncSessionToBackend } from "./token-sync.server";
 
 const REQUIRED_SCOPES = [
@@ -48,36 +47,12 @@ const shopify = shopifyApp({
         return;
       }
 
-      try {
-        await upsertShopToken({
-          shopDomain: session.shop,
-          accessToken: session.accessToken,
-          accessTokenExpiresAtMs: session.expires
-            ? session.expires.getTime()
-            : null,
-          refreshToken: session.refreshToken || null,
-          refreshTokenExpiresAtMs: session.refreshTokenExpires
-            ? session.refreshTokenExpires.getTime()
-            : null,
-          scopes: session.scope || null,
-          locale: session.onlineAccessInfo?.associated_user?.locale || null,
-          associatedUserScope:
-            session.onlineAccessInfo?.associated_user_scope || null,
-        });
-      } catch (error) {
-        console.error(
-          `Failed to upsert shop token for ${session.shop}:`,
-          error,
-        );
-      }
-
-      // Webhooks stay config-based; only ensure the app pixel is connected.
       await ensureWebPixelConnected(
         { shop: session.shop, accessToken: session.accessToken },
         ApiVersion.October25,
       );
 
-      // Optional: forward tokens to an external backend if configured.
+      // Forward the session token to the backend so it can call Shopify on its own.
       await syncSessionToBackend(session);
     },
   },
