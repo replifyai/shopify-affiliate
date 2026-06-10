@@ -48,3 +48,13 @@ redirect_urls = [ "https://affiliateapp.saleshq.ai/auth/callback" ]
 
 [capabilities]
 customer_events = true
+
+# App-owned shop metafield holding the storefront popup configuration.
+# Written by the embedded admin UI (/app/settings), read by the theme app
+# embed via shop.metafields["$app"].popup_config.
+[shop.metafields.app.popup_config]
+name = "Storefront popup configuration"
+description = "Affiliate popup display and styling settings, managed in the app"
+type = "json"
+access.admin = "merchant_read"
+access.storefront = "public_read"

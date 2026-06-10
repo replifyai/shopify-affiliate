@@ -37,6 +37,15 @@ export default function Index() {
         )}
       </s-section>
 
+      <s-section heading="Storefront Popup">
+        <s-paragraph>
+          Configure the affiliate gift popup — turn it on or off and adjust
+          typography and colors in{" "}
+          <s-link href="/app/settings">Popup settings</s-link>. Changes apply to
+          the storefront on the next page load.
+        </s-paragraph>
+      </s-section>
+
       <s-section heading="Operational Checks">
         <s-paragraph>
           Review webhook delivery and pixel connection status in{" "}

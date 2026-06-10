@@ -6,4 +6,14 @@
 }
 {% endschema %}
 
+{%- comment -%}
+  Popup configuration written by the app's admin UI (/app/settings) into the
+  app-owned shop metafield $app.popup_config. Rendered inline so app-embed.js
+  can read it synchronously without any API call. Renders "null" when the
+  metafield is unset — the script falls back to its built-in defaults.
+{%- endcomment -%}
+<script type="application/json" data-hq-affiliate-config>
+  {{- shop.metafields["$app"].popup_config.value | json -}}
+</script>
+
 <script src="{{ 'app-embed.js' | asset_url }}" defer></script>

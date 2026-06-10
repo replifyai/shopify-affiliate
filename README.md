@@ -26,7 +26,7 @@ There is **no** separate `shopify_shop` / `shopity_shop` table maintained by thi
 
 ### Webhook delivery
 
-Configured in [`shopify.app.affiliate-saleshq.toml`](./shopify.app.affiliate-saleshq.toml):
+Configured in [`shopify.app.toml`](./shopify.app.toml):
 
 - **Local routes** — Shopify lifecycle (`app/uninstalled`, `app/scopes_update`) and compliance topics (`customers/data_request`, `customers/redact`, `shop/redact` → consolidated `/webhooks/gdpr`).
 - **Direct to backend** — `orders/*`, `refunds/create`, `fulfillments/*` are delivered straight from Shopify to the backend Cloud Run URL. The backend verifies the HMAC using `SHOPIFY_API_SECRET`.
@@ -71,7 +71,7 @@ The `/api/pixel/track` route accepts JSON, logs it, and (optionally) forwards to
 
 ```sh
 npm install
-npm run dev      # uses shopify.app.affiliate-saleshq.toml
+npm run dev      # uses shopify.app.toml
 ```
 
 A local Postgres at `postgresql://postgres:postgres@localhost:5432/postgres` is used if `DATABASE_URL` isn't set.
@@ -91,7 +91,7 @@ Deploy configuration changes (webhooks / scopes / extensions) with:
 npm run deploy
 ```
 
-This pushes `shopify.app.affiliate-saleshq.toml` and the extension manifests to the Partner Dashboard.
+This pushes `shopify.app.toml` and the extension manifests to the Partner Dashboard.
 
 ## Notes
 

@@ -183,7 +183,7 @@ fulfillments/update  → shopifyFulfillmentUpdatedWebhookHandler (log)
 Shared dependency. Owns:
 
 - App configuration (scopes, webhooks, application URL) declared in
-  `shopify.app.affiliate-saleshq.toml` and pushed by `shopify app deploy`.
+  `shopify.app.toml` and pushed by `shopify app deploy`.
 - OAuth grant.
 - Webhook delivery with HMAC signing.
 - Admin GraphQL API.
@@ -544,10 +544,10 @@ sequenceDiagram
 
 ## 7. Configuration reference
 
-### 7.1 Shopify app TOML — `shopify.app.affiliate-saleshq.toml`
+### 7.1 Shopify app TOML — `shopify.app.toml`
 
 ```toml
-client_id = "b56b7a5d58fed0a87cddf8e04c72d889"
+client_id = "df526699c22e3167ba9a24e0ea5e42ba"
 name = "Affiliate-Saleshq"
 application_url = "https://affiliateapp.saleshq.ai"
 embedded = true
@@ -593,7 +593,7 @@ customer_events = true
 
 | Var | Required | Points to / value |
 |---|---|---|
-| `SHOPIFY_API_KEY` | yes | App client ID (`b56b7a5d58fed0a87cddf8e04c72d889`). |
+| `SHOPIFY_API_KEY` | yes | App client ID (`df526699c22e3167ba9a24e0ea5e42ba`). |
 | `SHOPIFY_API_SECRET` | yes | App client secret. Used to verify Shopify HMAC on local webhooks. |
 | `SHOPIFY_APP_URL` | yes | `https://affiliateapp.saleshq.ai`. Defines OAuth redirect base + pixel default endpoint. |
 | `DATABASE_URL` | yes (prod) | App's Postgres connection string. |
@@ -649,7 +649,7 @@ unset.
 # App
 cd shopify-affiliate
 npm install
-npm run dev       # uses shopify.app.affiliate-saleshq.toml + Shopify CLI tunnel
+npm run dev       # uses shopify.app.toml + Shopify CLI tunnel
 
 # Backend
 cd touch-backend/functions

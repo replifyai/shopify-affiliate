@@ -145,7 +145,7 @@ export default function IntegrationStatus() {
           </s-box>
         ) : null}
         <Form method="post">
-          <s-button submit disabled={submitting}>
+          <s-button type="submit" disabled={submitting}>
             {submitting ? "Reconnecting…" : "Reconnect pixel"}
           </s-button>
         </Form>
@@ -166,7 +166,7 @@ export default function IntegrationStatus() {
           ))}
         </s-unordered-list>
         <s-paragraph>
-          Order / refund / fulfillment events are delivered directly to the backend by Shopify (configured in <code>shopify.app.affiliate-saleshq.toml</code>):
+          Order / refund / fulfillment events are delivered directly to the backend by Shopify (configured in <code>shopify.app.toml</code>):
         </s-paragraph>
         <s-unordered-list>
           {DIRECT_WEBHOOKS.map((topic) => (

@@ -1,3 +1,71 @@
+/* ======================================================
+   0️⃣ Popup configuration
+   Merchant-managed settings saved by the app admin UI into the
+   $app.popup_config shop metafield and rendered into the page by
+   blocks/star_rating.liquid. Defaults mirror DEFAULT_POPUP_CONFIG in
+   app/popup-config.ts — keep both in sync.
+====================================================== */
+(function readAffiliatePopupConfig() {
+  var DEFAULTS = {
+    popupEnabled: true,
+    returnBannerEnabled: true,
+    showDiscountCode: true,
+    ctaLabel: "Shop Now",
+    typography: { fontFamily: "inherit", headlineSize: 15, bodySize: 13 },
+    colors: { background: "#ffffff", text: "", button: "#111111", buttonText: "#ffffff" },
+    borderRadius: 16,
+  };
+  var FONT_STACKS = {
+    inherit: "inherit",
+    system: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+    serif: "Georgia, 'Times New Roman', serif",
+    mono: "ui-monospace, SFMono-Regular, Menlo, monospace",
+  };
+  var HEX = /^#[0-9a-fA-F]{6}$/;
+
+  function clamp(value, min, max, fallback) {
+    var n = Number(value);
+    if (!isFinite(n)) return fallback;
+    return Math.min(max, Math.max(min, Math.round(n)));
+  }
+  function hex(value, fallback) {
+    return typeof value === "string" && HEX.test(value) ? value : fallback;
+  }
+  function bool(value, fallback) {
+    return typeof value === "boolean" ? value : fallback;
+  }
+
+  var raw = null;
+  try {
+    var el = document.querySelector("script[data-hq-affiliate-config]");
+    if (el && el.textContent) raw = JSON.parse(el.textContent);
+  } catch (e) {
+    raw = null;
+  }
+  raw = raw && typeof raw === "object" ? raw : {};
+  var typography = raw.typography && typeof raw.typography === "object" ? raw.typography : {};
+  var colors = raw.colors && typeof raw.colors === "object" ? raw.colors : {};
+
+  window.__HQ_POPUP_CONFIG__ = {
+    popupEnabled: bool(raw.popupEnabled, DEFAULTS.popupEnabled),
+    returnBannerEnabled: bool(raw.returnBannerEnabled, DEFAULTS.returnBannerEnabled),
+    showDiscountCode: bool(raw.showDiscountCode, DEFAULTS.showDiscountCode),
+    ctaLabel:
+      typeof raw.ctaLabel === "string" && raw.ctaLabel.trim()
+        ? raw.ctaLabel.trim().slice(0, 40)
+        : DEFAULTS.ctaLabel,
+    fontFamily:
+      FONT_STACKS[typography.fontFamily] || FONT_STACKS[DEFAULTS.typography.fontFamily],
+    headlineSize: clamp(typography.headlineSize, 12, 28, DEFAULTS.typography.headlineSize),
+    bodySize: clamp(typography.bodySize, 10, 20, DEFAULTS.typography.bodySize),
+    background: hex(colors.background, DEFAULTS.colors.background),
+    text: hex(colors.text, ""),
+    button: hex(colors.button, DEFAULTS.colors.button),
+    buttonText: hex(colors.buttonText, DEFAULTS.colors.buttonText),
+    borderRadius: clamp(raw.borderRadius, 0, 32, DEFAULTS.borderRadius),
+  };
+})();
+
 (function () {
     if (window.__AFFILIATE_EMBED_LOADED__) return;
     window.__AFFILIATE_EMBED_LOADED__ = true;
@@ -123,6 +191,11 @@
 ====================================================== */
 (function affiliateOfferModalFromParams() {
   const SESSION_KEY = "__hq_affiliate_modal_shown";
+  const config = window.__HQ_POPUP_CONFIG__ || {};
+
+  // Merchant disabled the popup in the app's settings. Return before the
+  // session flag is set so re-enabling shows the popup within the same session.
+  if (config.popupEnabled === false) return;
 
   if (location.pathname.includes("/checkout")) return;
   if (sessionStorage.getItem(SESSION_KEY)) return;
@@ -136,6 +209,12 @@
   if (!affiliateId) return;
 
   sessionStorage.setItem(SESSION_KEY, "1");
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
 
   /* ---------- Compact Modern Gift Styles ---------- */
   const style = document.createElement("style");
@@ -155,19 +234,19 @@
       --hq-text-muted: rgba(0, 0, 0, 0.5);
       --hq-bg: #fff;
       --hq-accent: currentColor;
-      
+
       position: fixed;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
       background: var(--hq-bg);
       padding: 24px 24px 20px;
-      border-radius: 16px;
+      border-radius: var(--hq-radius, 16px);
       max-width: 320px;
       width: calc(100% - 32px);
       box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.2);
       z-index: 9999;
-      font-family: inherit;
+      font-family: var(--hq-font, inherit);
       animation: hqGiftAppear 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       text-align: center;
       color: var(--hq-text);
@@ -204,7 +283,7 @@
 
     .hq-gift-headline {
       margin: 0 0 4px;
-      font-size: 15px;
+      font-size: var(--hq-headline-size, 15px);
       font-weight: 600;
       line-height: 1.4;
       letter-spacing: -0.2px;
@@ -212,7 +291,7 @@
 
     .hq-gift-subtitle {
       margin: 0 0 16px;
-      font-size: 13px;
+      font-size: var(--hq-body-size, 13px);
       opacity: 0.6;
       line-height: 1.4;
     }
@@ -242,7 +321,7 @@
     }
 
     .hq-gift-code {
-      font-size: 15px;
+      font-size: var(--hq-headline-size, 15px);
       font-weight: 600;
       letter-spacing: 1px;
       font-family: ui-monospace, SFMono-Regular, monospace;
@@ -283,15 +362,15 @@
     }
 
     .hq-gift-cta {
-      background: rgba(0, 0, 0, 0.9);
-      color: #fff;
+      background: var(--hq-btn-bg, rgba(0, 0, 0, 0.9));
+      color: var(--hq-btn-text, #fff);
       border: none;
       padding: 12px 20px;
-      border-radius: 10px;
+      border-radius: min(var(--hq-radius, 16px), 10px);
       font-weight: 500;
       cursor: pointer;
       width: 100%;
-      font-size: 13px;
+      font-size: var(--hq-body-size, 13px);
       transition: all 0.15s;
       display: flex;
       align-items: center;
@@ -301,7 +380,7 @@
     }
 
     .hq-gift-cta:hover {
-      background: rgba(0, 0, 0, 1);
+      filter: brightness(0.92);
     }
 
     .hq-gift-footer {
@@ -336,17 +415,22 @@
   // Build dynamic copy based on available data
   const hasName = affiliateName && affiliateName.trim();
   const hasDiscount = discountPercent && discountPercent.trim();
-  
+  const safeName = hasName ? escapeHtml(affiliateName.trim()) : "";
+  const safePercent = hasDiscount ? escapeHtml(discountPercent.trim()) : "";
+  const safeCode = discountCode ? escapeHtml(discountCode) : "";
+  const ctaLabel = escapeHtml(config.ctaLabel || "Shop Now");
+  const showCodeBox = config.showDiscountCode !== false && discountCode;
+
   let headline, subtitle;
   if (hasName && hasDiscount) {
-    headline = `${affiliateName} sent you a gift`;
-    subtitle = `${discountPercent}% off, just for you`;
+    headline = `${safeName} sent you a gift`;
+    subtitle = `${safePercent}% off, just for you`;
   } else if (hasName) {
-    headline = `${affiliateName} sent you a gift`;
+    headline = `${safeName} sent you a gift`;
     subtitle = `A special discount, just for you`;
   } else if (hasDiscount) {
     headline = `Someone sent you a gift`;
-    subtitle = `${discountPercent}% off is waiting for you`;
+    subtitle = `${safePercent}% off is waiting for you`;
   } else {
     headline = `Someone sent you a gift`;
     subtitle = `A special discount is waiting for you`;
@@ -357,7 +441,20 @@
 
   const modal = document.createElement("div");
   modal.className = "hq-gift-modal";
-  
+
+  // Merchant-configured styling (see $app.popup_config metafield).
+  modal.style.setProperty("--hq-bg", config.background || "#ffffff");
+  if (config.text) modal.style.setProperty("--hq-text", config.text);
+  modal.style.setProperty(
+    "--hq-radius",
+    (config.borderRadius != null ? config.borderRadius : 16) + "px",
+  );
+  modal.style.setProperty("--hq-font", config.fontFamily || "inherit");
+  modal.style.setProperty("--hq-headline-size", (config.headlineSize || 15) + "px");
+  modal.style.setProperty("--hq-body-size", (config.bodySize || 13) + "px");
+  modal.style.setProperty("--hq-btn-bg", config.button || "#111111");
+  modal.style.setProperty("--hq-btn-text", config.buttonText || "#ffffff");
+
   modal.innerHTML = `
     <button class="hq-gift-close" aria-label="Close">
       <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -372,11 +469,11 @@
     <h2 class="hq-gift-headline">${headline}</h2>
     <p class="hq-gift-subtitle">${subtitle}</p>
     
-    ${discountCode ? `
+    ${showCodeBox ? `
       <div class="hq-gift-code-box">
         <div class="hq-gift-code-label">Your code</div>
         <div class="hq-gift-code-wrapper">
-          <span class="hq-gift-code">${discountCode}</span>
+          <span class="hq-gift-code">${safeCode}</span>
           <button class="hq-gift-copy-btn" id="hq-gift-copy">
             <svg class="hq-gift-copy-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
@@ -388,13 +485,13 @@
     ` : ''}
     
     <button class="hq-gift-cta" id="hq-gift-unwrap">
-      Shop Now
+      ${ctaLabel}
       <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
       </svg>
     </button>
-    
-    ${hasName ? `<div class="hq-gift-footer">From <strong>${affiliateName}</strong></div>` : ''}
+
+    ${hasName ? `<div class="hq-gift-footer">From <strong>${safeName}</strong></div>` : ''}
   `;
 
   document.body.appendChild(backdrop);
@@ -472,6 +569,7 @@
   const SESSION_KEY = "__hq_affiliate_return_shown";
   const REF_COOKIE = "__hqref";
   const SMCHANNEL_COOKIE = "__hqsmchannel";
+  const config = window.__HQ_POPUP_CONFIG__ || {};
 
   if (location.pathname.includes("/checkout")) return;
 
@@ -517,24 +615,30 @@
       .catch(() => {});
   })();
 
+  // Merchant disabled the banner in the app's settings. Cart attribution
+  // above still runs — config only governs visible UI.
+  if (config.returnBannerEnabled === false) return;
+
   // Show banner only once per session
   if (sessionStorage.getItem(SESSION_KEY)) return;
   sessionStorage.setItem(SESSION_KEY, "1");
 
   const banner = document.createElement("div");
+  const bannerFont =
+    config.fontFamily && config.fontFamily !== "inherit" ? config.fontFamily : "system-ui";
   banner.style = `
     position: fixed;
     bottom: 20px;
     right: 20px;
-    background: #111;
-    color: #fff;
+    background: ${config.button || "#111111"};
+    color: ${config.buttonText || "#ffffff"};
     padding: 14px 16px;
-    border-radius: 12px;
+    border-radius: ${Math.min(config.borderRadius != null ? config.borderRadius : 16, 12)}px;
     z-index: 9999;
     max-width: 280px;
-    font-family: system-ui;
+    font-family: ${bannerFont};
     box-shadow: 0 10px 30px rgba(0,0,0,.3);
-    font-size: 14px;
+    font-size: ${(config.bodySize || 13) + 1}px;
   `;
 
   banner.innerHTML = `

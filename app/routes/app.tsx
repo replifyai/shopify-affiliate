@@ -46,6 +46,7 @@ export default function App() {
     <AppProvider embedded apiKey={apiKey}>
       <NavMenu>
         <a href="/app">Home</a>
+        <a href="/app/settings">Popup settings</a>
         <a href="/app/additional">Setup guide</a>
         <a href="/app/integration-status">Integration status</a>
       </NavMenu>
