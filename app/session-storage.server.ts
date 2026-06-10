@@ -1,12 +1,22 @@
 import { Session, type SessionParams } from "@shopify/shopify-api";
 import type { SessionStorage } from "@shopify/shopify-app-session-storage";
-import { query } from "./db.server";
+import { callBackend } from "./backend-api.server";
 import { syncSessionToBackend } from "./token-sync.server";
 
 type StoredSession = {
   [key: string]: unknown;
   expires?: string | null;
   refreshTokenExpires?: string | null;
+};
+
+type LoadResponse = {
+  ok: boolean;
+  session: { sessionData: StoredSession } | null;
+};
+
+type FindByShopResponse = {
+  ok: boolean;
+  sessions: Array<{ sessionData: StoredSession }>;
 };
 
 function serializeSession(session: Session): StoredSession {
@@ -31,13 +41,7 @@ function deserializeSession(data: StoredSession): Session {
   return new Session(params);
 }
 
-export class PostgresSessionStorage implements SessionStorage {
-  constructor(private readonly bootstrapReady: Promise<void>) {}
-
-  private async ready() {
-    await this.bootstrapReady;
-  }
-
+export class RemoteSessionStorage implements SessionStorage {
   private async forwardRefreshedOfflineToken(session: Session) {
     if (session.isOnline || !session.accessToken) return;
 
@@ -60,40 +64,30 @@ export class PostgresSessionStorage implements SessionStorage {
   }
 
   async storeSession(session: Session): Promise<boolean> {
-    await this.ready();
     const now = Date.now();
-    const expiresAt = session.expires ? session.expires.toISOString() : null;
-    const sessionData = JSON.stringify(serializeSession(session));
 
-    await query(
-      `
-        INSERT INTO public.shopify_app_session (
-          id,
-          shop,
-          is_online,
-          expires_at,
-          session_data,
-          created_at,
-          updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7)
-        ON CONFLICT (id) DO UPDATE
-        SET
-          shop = EXCLUDED.shop,
-          is_online = EXCLUDED.is_online,
-          expires_at = EXCLUDED.expires_at,
-          session_data = EXCLUDED.session_data,
-          updated_at = EXCLUDED.updated_at
-      `,
-      [
-        session.id,
-        session.shop,
-        session.isOnline,
-        expiresAt,
-        sessionData,
-        now,
-        now,
-      ],
+    try {
+      await callBackend({
+        path: "/sessions/store",
+        body: {
+          id: session.id,
+          shop: session.shop,
+          isOnline: session.isOnline,
+          expiresAt: session.expires ? session.expires.toISOString() : null,
+          sessionData: serializeSession(session),
+          now,
+        },
+      });
+    } catch (error) {
+      console.error(
+        `[session-storage] remote storeSession failed for ${session.shop} (id=${session.id}):`,
+        error,
+      );
+      throw error;
+    }
+
+    console.log(
+      `[session-storage] stored session for ${session.shop} (id=${session.id}, isOnline=${session.isOnline})`,
     );
 
     await this.forwardRefreshedOfflineToken(session);
@@ -102,50 +96,62 @@ export class PostgresSessionStorage implements SessionStorage {
   }
 
   async loadSession(id: string): Promise<Session | undefined> {
-    await this.ready();
-    const result = await query<{ session_data: StoredSession }>(
-      `
-        SELECT session_data
-        FROM public.shopify_app_session
-        WHERE id = $1
-        LIMIT 1
-      `,
-      [id],
-    );
-
-    const row = result.rows[0];
-    if (!row?.session_data) return undefined;
-    return deserializeSession(row.session_data);
+    try {
+      const result = await callBackend<LoadResponse>({
+        path: "/sessions/load",
+        body: { id },
+      });
+      if (!result.session?.sessionData) return undefined;
+      return deserializeSession(result.session.sessionData);
+    } catch (error) {
+      console.error(`[session-storage] remote loadSession failed (id=${id}):`, error);
+      throw error;
+    }
   }
 
   async deleteSession(id: string): Promise<boolean> {
-    await this.ready();
-    await query("DELETE FROM public.shopify_app_session WHERE id = $1", [id]);
-    return true;
+    try {
+      await callBackend({
+        path: "/sessions/delete",
+        body: { ids: [id] },
+      });
+      return true;
+    } catch (error) {
+      console.error(`[session-storage] remote deleteSession failed (id=${id}):`, error);
+      throw error;
+    }
   }
 
   async deleteSessions(ids: string[]): Promise<boolean> {
-    await this.ready();
     if (!ids.length) return true;
-    await query("DELETE FROM public.shopify_app_session WHERE id = ANY($1::text[])", [
-      ids,
-    ]);
-    return true;
+    try {
+      await callBackend({
+        path: "/sessions/delete",
+        body: { ids },
+      });
+      return true;
+    } catch (error) {
+      console.error(
+        `[session-storage] remote deleteSessions failed (count=${ids.length}):`,
+        error,
+      );
+      throw error;
+    }
   }
 
   async findSessionsByShop(shop: string): Promise<Session[]> {
-    await this.ready();
-    const result = await query<{ session_data: StoredSession }>(
-      `
-        SELECT session_data
-        FROM public.shopify_app_session
-        WHERE shop = $1
-        ORDER BY updated_at DESC
-        LIMIT 25
-      `,
-      [shop],
-    );
-
-    return result.rows.map((row) => deserializeSession(row.session_data));
+    try {
+      const result = await callBackend<FindByShopResponse>({
+        path: "/sessions/find-by-shop",
+        body: { shop, limit: 25 },
+      });
+      return (result.sessions || []).map((row) => deserializeSession(row.sessionData));
+    } catch (error) {
+      console.error(
+        `[session-storage] remote findSessionsByShop failed (shop=${shop}):`,
+        error,
+      );
+      throw error;
+    }
   }
 }

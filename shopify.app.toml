@@ -1,6 +1,6 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "b56b7a5d58fed0a87cddf8e04c72d889"
+client_id = "df526699c22e3167ba9a24e0ea5e42ba"
 name = "Affiliate-Saleshq"
 application_url = "https://affiliateapp.saleshq.ai"
 embedded = true

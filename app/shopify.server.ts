@@ -4,9 +4,8 @@ import {
   AppDistribution,
   shopifyApp,
 } from "@shopify/shopify-app-react-router/server";
-import { dbReady } from "./db.server";
 import { ensureWebPixelConnected } from "./pixels.server";
-import { PostgresSessionStorage } from "./session-storage.server";
+import { RemoteSessionStorage } from "./session-storage.server";
 import { syncSessionToBackend } from "./token-sync.server";
 
 const REQUIRED_SCOPES = [
@@ -35,7 +34,7 @@ const shopify = shopifyApp({
   scopes: appScopes,
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
-  sessionStorage: new PostgresSessionStorage(dbReady),
+  sessionStorage: new RemoteSessionStorage(),
   distribution: AppDistribution.AppStore,
   future: {
     expiringOfflineAccessTokens: true,

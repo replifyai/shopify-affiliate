@@ -1,3 +1,5 @@
+import { getBackendBaseUrl, getBackendSecret } from "./backend-api.server";
+
 type TokenSyncSession = {
   shop: string;
   accessToken?: string | null;
@@ -13,22 +15,23 @@ function toIso(value?: Date | null) {
 }
 
 export async function syncSessionToBackend(session: TokenSyncSession) {
-  const syncUrl = process.env.TOKEN_SYNC_URL;
-  if (!syncUrl) return;
+  const baseUrl = getBackendBaseUrl();
+  const secret = getBackendSecret();
+  if (!baseUrl) return;
 
   if (!session.accessToken) {
     console.error(`Token sync skipped: missing access token for ${session.shop}`);
     return;
   }
 
+  const url = `${baseUrl}/shop-token`;
+
   try {
-    const response = await fetch(syncUrl, {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(process.env.TOKEN_SYNC_SECRET
-          ? { "X-Token-Sync-Secret": process.env.TOKEN_SYNC_SECRET }
-          : {}),
+        ...(secret ? { "X-Token-Sync-Secret": secret } : {}),
       },
       body: JSON.stringify({
         shop: session.shop,
@@ -42,8 +45,14 @@ export async function syncSessionToBackend(session: TokenSyncSession) {
     });
 
     if (!response.ok) {
+      let bodySnippet = "";
+      try {
+        bodySnippet = (await response.text()).slice(0, 256);
+      } catch {
+        // ignore body read failures
+      }
       console.error(
-        `Token sync failed for ${session.shop}: HTTP ${response.status}`,
+        `Token sync failed for ${session.shop}: HTTP ${response.status} body=${bodySnippet}`,
       );
       return;
     }
