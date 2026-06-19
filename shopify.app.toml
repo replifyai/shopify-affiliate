@@ -25,8 +25,9 @@ uri = "/webhooks/app/scopes_update"
 compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
 uri = "/webhooks/gdpr"
 
-# Order / refund / fulfillment events are delivered directly to the backend.
+# Order / refund / fulfillment / return events are delivered directly to the backend.
 # The backend verifies HMAC using the app's API secret.
+# Returns drive exchange detection / commission holds (requires read_returns scope).
 [[webhooks.subscriptions]]
 topics = [
   "orders/create",
@@ -36,12 +37,16 @@ topics = [
   "refunds/create",
   "fulfillments/create",
   "fulfillments/update",
+  "returns/approve",
+  "returns/update",
+  "returns/close",
+  "returns/cancel",
 ]
 uri = "https://shopifyallinone-dkhjjaxofq-el.a.run.app/"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_fulfillments,read_orders,write_products,write_discounts,read_discounts,write_price_rules,read_price_rules,write_pixels,read_customer_events"
+scopes = "read_fulfillments,read_orders,read_returns,write_products,write_discounts,read_discounts,write_price_rules,read_price_rules,write_pixels,read_customer_events"
 
 [auth]
 redirect_urls = [ "https://affiliateapp.saleshq.ai/auth/callback" ]
