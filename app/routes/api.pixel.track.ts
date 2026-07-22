@@ -84,5 +84,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   forwardEvent(body).catch(() => {});
 
-  return corsResponse({ ok: true });
+  // temporary diagnostic — remove after verifying pixel forwarding
+  return corsResponse({ ok: true, _fwd: FORWARD_URL ? "set" : "EMPTY", _sec: FORWARD_SECRET ? "set" : "EMPTY" });
 };
