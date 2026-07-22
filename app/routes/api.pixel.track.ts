@@ -24,11 +24,11 @@ function corsResponse(body: unknown, init: ResponseInit = {}) {
   });
 }
 
-async function forwardEvent(event: PixelEvent) {
-  if (!FORWARD_URL) return;
+async function forwardEvent(event: PixelEvent): Promise<string> {
+  if (!FORWARD_URL) return "no-url";
 
   try {
-    await fetch(FORWARD_URL, {
+    const res = await fetch(FORWARD_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -39,8 +39,10 @@ async function forwardEvent(event: PixelEvent) {
       },
       body: JSON.stringify(event),
     });
+    return `fwd-${res.status}`;
   } catch (error) {
     console.error("[pixel-track] forward failed:", error);
+    return `err-${(error as Error).message}`;
   }
 }
 
@@ -82,8 +84,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     `[pixel-track] ${body.event} accountID=${body.accountID ?? "?"} shop=${body.shop ?? "?"}`,
   );
 
-  forwardEvent(body).catch(() => {});
+  // Await the forward: in serverless, a fire-and-forget fetch is killed when the
+  // response returns, so the event never actually reaches the backend.
+  const fwdResult = await forwardEvent(body);
 
   // temporary diagnostic — remove after verifying pixel forwarding
-  return corsResponse({ ok: true, _fwd: FORWARD_URL ? "set" : "EMPTY", _sec: FORWARD_SECRET ? "set" : "EMPTY" });
+  return corsResponse({ ok: true, _fwdResult: fwdResult });
 };
