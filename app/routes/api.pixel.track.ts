@@ -86,8 +86,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   // Await the forward: in serverless, a fire-and-forget fetch is killed when the
   // response returns, so the event never actually reaches the backend.
-  const fwdResult = await forwardEvent(body);
+  await forwardEvent(body);
 
-  // temporary diagnostic — remove after verifying pixel forwarding
-  return corsResponse({ ok: true, _fwdResult: fwdResult });
+  return corsResponse({ ok: true });
 };
