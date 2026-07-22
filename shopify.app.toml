@@ -42,7 +42,7 @@ topics = [
   "returns/close",
   "returns/cancel",
 ]
-uri = "https://shopifyallinone-dkhjjaxofq-el.a.run.app/"
+uri = "https://14cgqud3x9.execute-api.ap-south-1.amazonaws.com/webhooks/shopify"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes

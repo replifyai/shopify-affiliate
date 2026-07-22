@@ -8,6 +8,7 @@ const CORS_HEADERS: HeadersInit = {
 };
 
 const FORWARD_URL = process.env.PIXEL_FORWARD_URL || "";
+const FORWARD_SECRET = process.env.PIXEL_FORWARD_SECRET || "";
 
 type PixelEvent = {
   event?: unknown;
@@ -29,7 +30,13 @@ async function forwardEvent(event: PixelEvent) {
   try {
     await fetch(FORWARD_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        // The AWS /pixel ingest endpoint requires this shared secret and rejects
+        // (401) any request without it. Set PIXEL_FORWARD_SECRET to match the
+        // backend's PIXEL_SHARED_SECRET.
+        ...(FORWARD_SECRET ? { "x-pixel-secret": FORWARD_SECRET } : {}),
+      },
       body: JSON.stringify(event),
     });
   } catch (error) {
